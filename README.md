@@ -1,8 +1,6 @@
 # Download
-- Links: Comming Soon
-
-[![GitHub Release](https://img.shields.io/github/v/release/sumit282698/Muzix_X)](https://github.com/sumit282698/Muzix_X/releases/latest)
-  [![Github All Releases](https://img.shields.io/github/downloads/sumit282698/Muzix_X/total.svg)](https://github.com/sumit282698/Muzix_X/releases)
+- Total Downloads: [![Github All Releases](https://img.shields.io/github/downloads/sumit282698/Muzix_X/total.svg)](https://github.com/sumit282698/Muzix_X/releases)
+- Link: [![GitHub Release](https://img.shields.io/github/v/release/sumit282698/Muzix_X)](https://github.com/sumit282698/Muzix_X/releases/latest)
 
 # About Muzix X
 It's a Android Music Streaming App
