@@ -1,5 +1,9 @@
 package com.sumit.muzixx
 
+import android.content.ContentUris
+import android.content.Context
+import android.provider.MediaStore
+
 fun fetchLocalSongs(context: Context): List<Song> {
     val songList = mutableListOf<Song>()
     val uri = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
@@ -11,21 +15,24 @@ fun fetchLocalSongs(context: Context): List<Song> {
         MediaStore.Audio.Media.DURATION
     )
 
-    context.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
-        val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
-        val titleColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
-        val artistColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
-        val dataColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
-        val durationColumn = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+    val cursor = context.contentResolver.query(uri, projection, null, null, null)
 
-        while (cursor.moveToNext()) {
-            songList.add(Song(
-                id = cursor.getLong(idColumn),
-                title = cursor.getString(titleColumn),
-                artist = cursor.getString(artistColumn),
-                data = cursor.getString(dataColumn),
-                duration = cursor.getInt(durationColumn)
-            ))
+    cursor?.use {
+        val idColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media._ID)
+        val titleColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.TITLE)
+        val artistColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.ARTIST)
+        val dataColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA)
+        val durationColumn = it.getColumnIndexOrThrow(MediaStore.Audio.Media.DURATION)
+
+        while (it.moveToNext()) {
+            val id = it.getLong(idColumn)
+            val title = it.getString(titleColumn)
+            val artist = it.getString(artistColumn)
+            val data = it.getString(dataColumn)
+            val duration = it.getInt(durationColumn)
+            val contentUri = ContentUris.withAppendedId(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id)
+
+            songList.add(Song(id, title, artist, data, contentUri, duration))
         }
     }
     return songList
