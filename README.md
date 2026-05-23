@@ -23,7 +23,7 @@ An elegant, high-performance Android music streaming and local playback applicat
 
 | Home Screen & Discovery | Active Player UI | Search Online |
 | :---: | :---: | :---: |
-| <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/home_page.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/player.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/search.jpg" width="280">
+| <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/home_page.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/player.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/search.jpg" width="280"> |
 
 ---
 
