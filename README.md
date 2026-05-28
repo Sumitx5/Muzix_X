@@ -48,4 +48,5 @@ To install the latest stable production build, head directly over to the release
 ## 🤝 Credits & Acknowledgments
 
 * **YouTube Extraction Layer:** Powered by [`SimpMusic Kotlin:youtube-Extractor`](https://github.com/maxrave-dev/kotlin-youtubeExtractor) & [`Pipe`](https://github.com/TeamNewPipe/NewPipe) parsing engines.
+* **Jio Saavn Unofficial Api:** [Link](https://saavn.sumit.co/docs)
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
