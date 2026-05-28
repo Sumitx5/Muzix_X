@@ -4,146 +4,76 @@ import android.util.Log
 import com.sumit.muzixx.data.Song
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.Headers.Companion.toHeaders
-import okhttp3.OkHttpClient
-import okhttp3.RequestBody.Companion.toRequestBody
-import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
-import org.schabi.newpipe.extractor.downloader.Downloader
-import org.schabi.newpipe.extractor.downloader.Request
-import org.schabi.newpipe.extractor.downloader.Response
-import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
-import java.io.IOException
-import java.util.concurrent.TimeUnit
 
+@Suppress("DEPRECATION")
 class YouTubeAudioExtractor {
-
     companion object {
-
         private const val TAG = "YTExtractor"
-
-        @Volatile
-        private var initialized = false
-
-        fun init() {
-
-            if (initialized) return
-
-            synchronized(this) {
-
-                if (initialized) return
-
-                try {
-
-                    val okHttpClient = OkHttpClient.Builder()
-                        .connectTimeout(15, TimeUnit.SECONDS)
-                        .readTimeout(15, TimeUnit.SECONDS)
-                        .build()
-
-                    NewPipe.init(object : Downloader() {
-
-                        @Throws(IOException::class)
-                        override fun execute(request: Request): Response {
-
-                            val method =
-                                request.httpMethod() ?: "GET"
-
-                            val headers =
-                                request.headers()
-                                    ?.mapValues {
-                                        it.value.joinToString(",")
-                                    }
-                                    ?.toHeaders()
-
-                            val requestBuilder =
-                                okhttp3.Request.Builder()
-                                    .url(request.url())
-
-                            if (headers != null) {
-                                requestBuilder.headers(headers)
-                            }
-
-                            if (method.equals("POST", true)) {
-
-                                val body =
-                                    (request.dataToSend()
-                                        ?: ByteArray(0))
-                                        .toRequestBody()
-
-                                requestBuilder.post(body)
-
-                            } else {
-                                requestBuilder.get()
-                            }
-
-                            val response =
-                                okHttpClient
-                                    .newCall(requestBuilder.build())
-                                    .execute()
-
-                            return Response(
-                                response.code,
-                                response.message,
-                                response.headers.toMultimap(),
-                                response.body?.string(),
-                                response.request.url.toString()
-                            )
-                        }
-                    })
-
-                    initialized = true
-
-                    Log.d(TAG, "NewPipe initialized")
-
-                } catch (e: Exception) {
-
-                    Log.e(TAG, "Initialization failed", e)
-                }
-            }
-        }
     }
 
-    suspend fun getSongFromVideoId(
-        videoId: String
-    ): Song? = withContext(Dispatchers.IO) {
+    private val searchBridge = YouTubeMusicScraper()
 
+    suspend fun getSongFromVideoId(videoIdOrQuery: String): Song? = withContext(Dispatchers.IO) {
         try {
-            val videoUrl = "https://www.youtube.com/watch?v=$videoId"
+            val sanitizedInput = videoIdOrQuery.replace("yt_", "").trim()
 
-            val streamInfo = StreamInfo.getInfo(
-                ServiceList.YouTube,
-                videoUrl
-            )
+            val finalVideoId = if (sanitizedInput.length == 11 && !sanitizedInput.contains(" ")) {
+                sanitizedInput
+            } else {
+                Log.d(TAG, "Resolving text fallback query via Scraper: $videoIdOrQuery")
+                val matches = searchBridge.searchSongs(videoIdOrQuery)
+                val topMatch = matches.firstOrNull()?.id?.replace("yt_", "") ?: ""
 
-            val bestAudio = getBestAudioStream(streamInfo)
+                if (topMatch.isBlank()) {
+                    Log.e(TAG, "No match found on YouTube for query: $videoIdOrQuery")
+                    return@withContext null
+                }
+                topMatch
+            }
 
-            if (bestAudio == null) {
-                Log.e(TAG, "No audio stream found")
+            val url = "https://www.youtube.com/watch?v=$finalVideoId"
+            val info = StreamInfo.getInfo(ServiceList.YouTube, url)
+
+            // ─── 🛠️ ENHANCED FALLBACK STREAM RESOLUTION ───
+            // Step 1: Try to grab pure high-bitrate audio streams first
+            var targetStreamUrl = info.audioStreams
+                ?.filter { !it.url.isNullOrBlank() }
+                ?.maxByOrNull { it.bitrate }
+                ?.url
+
+            // Step 2: Fallback to mixed video/audio streams if pure audio arrays are empty
+            if (targetStreamUrl.isNullOrBlank()) {
+                Log.d(TAG, "Pure audio streams empty for $finalVideoId. Attempting video stream fallback...")
+                targetStreamUrl = info.videoStreams
+                    ?.filter { !it.url.isNullOrBlank() }
+                    ?.minByOrNull { it.bitrate } // Grab lowest video bitrate to save user bandwidth
+                    ?.url
+            }
+
+            if (targetStreamUrl.isNullOrBlank()) {
+                Log.e(TAG, "No valid audio or video stream link fetched for $finalVideoId")
                 return@withContext null
             }
 
-            Song(
-                id = videoId,
-                title = streamInfo.name ?: "Unknown",
-                artist = streamInfo.uploaderName ?: "Unknown Artist",
-                uri = bestAudio.url ?: "",
-                artUri = streamInfo.thumbnails?.firstOrNull()?.url,
-                duration = streamInfo.duration * 1000L,
-                isStreaming = true
+            val artworkUrl = info.thumbnails?.firstOrNull()?.url
+                ?: "https://img.youtube.com/vi/$finalVideoId/hqdefault.jpg"
+
+            return@withContext Song(
+                id = "yt_$finalVideoId",
+                title = info.name ?: "Unknown",
+                artist = info.uploaderName ?: "Unknown",
+                uri = targetStreamUrl,
+                artUri = artworkUrl,
+                duration = info.duration * 1000L,
+                isStreaming = true,
+                folderName = "YouTube Stream"
             )
 
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to extract song", e)
+            Log.e(TAG, "Extractor process failed unexpectedly", e)
             null
         }
-    }
-
-    private fun getBestAudioStream(
-        streamInfo: StreamInfo
-    ): AudioStream? {
-
-        return streamInfo.audioStreams
-            ?.maxByOrNull { it.bitrate }
     }
 }

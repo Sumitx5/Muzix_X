@@ -1,140 +1,54 @@
 package com.sumit.muzixx.data.network
 
-import com.google.gson.Gson
-import com.google.gson.JsonObject
+import android.util.Log
 import com.sumit.muzixx.data.Song
-import io.ktor.client.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.net.URLEncoder
+import org.schabi.newpipe.extractor.search.SearchExtractor
+import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 class YouTubeMusicScraper {
-    private val client = HttpClient(OkHttp)
-    private val gson = Gson()
+
+    // Clean regex to extract the 11-character video ID from any YouTube stream URL safely
+    private val videoIdRegex = "(?:v=|\\/v\\/|embed\\/|youtu\\.be\\/|\\/shorts\\/)([^\"&?\\/\\s]{11})".toRegex()
 
     suspend fun searchSongs(query: String): List<Song> = withContext(Dispatchers.IO) {
         try {
-            val encodedQuery = URLEncoder.encode(query, "UTF-8")
-            val url = "https://www.youtube.com/results?search_query=$encodedQuery&sp=EgIQAQ%253D%253D"
+            val list = mutableListOf<Song>()
 
-            val response: HttpResponse = client.get(url) {
-                header(HttpHeaders.UserAgent, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                header("Accept-Language", "en-US,en;q=0.9")
-            }
+            val extractor: SearchExtractor = ServiceList.YouTube.getSearchExtractor(query)
+            extractor.fetchPage()
 
-            val htmlContent = response.bodyAsText()
-            val searchMarker = "var ytInitialData = "
+            for (item in extractor.initialPage.items) {
+                if (item is StreamInfoItem) {
+                    val videoUrl = item.url ?: continue
 
-            if (!htmlContent.contains(searchMarker)) {
-                println("MUZIX_DEBUG: Could not locate configuration payload data on page.")
-                return@withContext emptyList()
-            }
+                    // FIXED: Extract the video ID natively via regex matching instead of the fake utility method
+                    val matchResult = videoIdRegex.find(videoUrl)
+                    val videoId = matchResult?.groupValues?.get(1) ?: continue
 
-            val startIndex = htmlContent.indexOf(searchMarker) + searchMarker.length
+                    val artworkUrl = item.thumbnails?.firstOrNull()?.url
+                        ?: "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
 
-            var endIndex = htmlContent.indexOf(";</script>", startIndex)
-            if (endIndex == -1) {
-                endIndex = htmlContent.indexOf("</script>", startIndex)
-            }
-            if (endIndex == -1) return@withContext emptyList()
-
-            var jsonString = htmlContent.substring(startIndex, endIndex).trim()
-            if (jsonString.endsWith(";")) {
-                jsonString = jsonString.dropLast(1)
-            }
-
-            println("MUZIX_DEBUG: Cracked open raw configuration JSON! Size: ${jsonString.length} characters")
-
-            return@withContext parseYouTubeHtmlJson(jsonString)
-        } catch (e: Exception) {
-            println("MUZIX_DEBUG_ERROR: Network request processing failed.")
-            e.printStackTrace()
-            emptyList()
-        }
-    }
-
-    suspend fun fetchTrendingSongs(): List<Song> {
-        return searchSongs("Trending Songs Hindi")
-    }
-
-    suspend fun fetchHindiHitsSongs(): List<Song> {
-        return searchSongs("Hindi Hits")
-    }
-
-    private fun parseYouTubeHtmlJson(jsonText: String): List<Song> {
-        val songList = mutableListOf<Song>()
-        try {
-            val root = gson.fromJson(jsonText, JsonObject::class.java)
-            val contents = root.getAsJsonObject("contents") ?: return emptyList()
-
-            val sectionList = contents.getAsJsonObject("twoColumnSearchResultsRenderer")
-                ?.getAsJsonObject("primaryContents")
-                ?.getAsJsonObject("sectionListRenderer")
-                ?.getAsJsonArray("contents") ?: return emptyList()
-
-            var contentsArray: com.google.gson.JsonArray? = null
-            for (section in sectionList) {
-                val itemSection = section.asJsonObject.getAsJsonObject("itemSectionRenderer")
-                if (itemSection != null) {
-                    contentsArray = itemSection.getAsJsonArray("contents")
-                    break
-                }
-            }
-
-            if (contentsArray == null || contentsArray.size() == 0) {
-                println("MUZIX_DEBUG: No valid item section contents found.")
-                return emptyList()
-            }
-
-            println("MUZIX_DEBUG: Processing ${contentsArray.size()} items from results array...")
-
-            for (element in contentsArray) {
-                val obj = element.asJsonObject
-                val videoRenderer = obj.getAsJsonObject("videoRenderer") ?: continue
-
-                val titleRuns = videoRenderer.getAsJsonObject("title")?.getAsJsonArray("runs")
-                val title = if (titleRuns != null && titleRuns.size() > 0) {
-                    titleRuns.get(0).asJsonObject.getAsJsonPrimitive("text")?.asString ?: "Unknown Track"
-                } else {
-                    "Unknown Track"
-                }
-
-                val ownerRuns = videoRenderer.getAsJsonObject("ownerText")?.getAsJsonArray("runs")
-                val artist = if (ownerRuns != null && ownerRuns.size() > 0) {
-                    ownerRuns.get(0).asJsonObject.getAsJsonPrimitive("text")?.asString ?: "Unknown Artist"
-                } else {
-                    "Unknown Artist"
-                }
-
-                val videoIdObj = videoRenderer.getAsJsonPrimitive("videoId")
-                val videoId = videoIdObj?.asString ?: ""
-
-                val thumbnailUrl = "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
-
-                if (videoId.isNotBlank()) {
-                    songList.add(
+                    list.add(
                         Song(
-                            id = videoId,
-                            title = title,
-                            artist = artist,
-                            uri = "https://www.youtube.com/watch?v=$videoId",
-                            artUri = thumbnailUrl,
-                            duration = 0L,
-                            isStreaming = true
+                            id = "yt_$videoId", // Unified tracking prefix
+                            title = item.name ?: "Unknown Title",
+                            artist = item.uploaderName ?: "Unknown Artist",
+                            uri = "",
+                            artUri = artworkUrl,
+                            duration = item.duration * 1000L,
+                            isStreaming = true,
+                            folderName = "YouTube Music"
                         )
                     )
                 }
             }
+            return@withContext list
         } catch (e: Exception) {
-            println("MUZIX_DEBUG_PARSING_ERROR: Layout parsing broke down.")
-            e.printStackTrace()
+            Log.e("YT_SCRAPER_ERROR", "Failed scraping YouTube matches", e)
+            return@withContext emptyList()
         }
-
-        println("MUZIX_DEBUG: Successfully parsed ${songList.size} streaming songs out of the payload data!")
-        return songList
     }
 }

@@ -1,406 +1,317 @@
 package com.sumit.muzixx.viewmodel
 
-import android.content.ComponentName
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.core.content.edit
-import androidx.core.net.toUri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.media3.common.MediaItem
-import androidx.media3.common.MediaMetadata
-import androidx.media3.common.Player
-import androidx.media3.session.MediaController
-import androidx.media3.session.SessionToken
-import com.google.common.util.concurrent.MoreExecutors
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
 import com.sumit.muzixx.data.Playlist
 import com.sumit.muzixx.data.Song
-import com.sumit.muzixx.services.PlaybackService
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.util.UUID
+import com.sumit.muzixx.data.manager.PlayerController
+import com.sumit.muzixx.data.manager.PlaylistController
+import com.sumit.muzixx.data.manager.MediaStateHolder
+import com.sumit.muzixx.data.repository.SettingsRepository
+import com.sumit.muzixx.data.repository.PlaybackStatsRepository
+import com.sumit.muzixx.data.network.JioSaavnApiService
+import com.sumit.muzixx.data.network.UpdateChecker
+import com.sumit.muzixx.data.model.toSong
+import com.sumit.muzixx.data.network.YouTubeAudioExtractor
+import org.schabi.newpipe.extractor.stream.StreamExtractor
+import org.schabi.newpipe.extractor.ServiceList
+import com.sumit.muzixx.data.network.YouTubeMusicScraper
+import kotlinx.coroutines.*
 
 class MusicViewModel : ViewModel() {
-    enum class RepeatMode { NONE, ALL, ONE }
 
-    companion object {
-        private const val TAG = "MusicViewModel"
+    val mediaStateHolder by lazy { MediaStateHolder(viewModelScope) }
+    private val ytScraper = YouTubeMusicScraper()
+    private val ytExtractor = YouTubeAudioExtractor()
+
+    lateinit var settings: SettingsRepository private set
+    lateinit var stats: PlaybackStatsRepository private set
+
+    private val playlistController by lazy { PlaylistController(onSavePlaylists = { savePlaylistsToStorage() }) }
+    private val jioSaavnApiService by lazy { JioSaavnApiService.create() }
+    private var sharedPreferences: SharedPreferences? = null
+
+    //EXPOSED PLAYER STATES
+    val isPlaying get() = playerController.isPlaying
+    val selectedSong get() = playerController.selectedSong
+    val currentPosition get() = mediaStateHolder.currentPosition
+    val totalDuration get() = mediaStateHolder.totalDuration
+
+    val mediaController get() = playerController.mediaController
+    val activePlaylistIndex get() = playerController.activePlaylistIndex
+    val activePlaybackQueue get() = playerController.activePlaybackQueue
+
+    //CORE CENTRALIZED PLAYER HANDLER
+    private val playerController by lazy {
+        PlayerController(
+            scope = viewModelScope,
+            onPlaybackStarted = { isPlayingNow, activeController ->
+                if (::stats.isInitialized) {
+                    stats.startPlaybackTimer(isPlayingProvider = { isPlayingNow })
+                }
+                mediaStateHolder.startTracking(mediaControllerProvider = { activeController })
+            },
+            onPlaybackStopped = {
+                if (::stats.isInitialized) stats.stopPlaybackTimer()
+                mediaStateHolder.stopTracking()
+            },
+            onTrackSwitched = {
+                if (::stats.isInitialized) stats.incrementSongsHeardCount()
+                handleQueueLookaheadAutoplay()
+            },
+            onQueueUpdated = { updatedList ->
+                currentPlaybackQueue = updatedList
+            },
+
+            resolveYouTubeStream = { songItem ->
+                try {
+                    val cleanId = songItem.id.replace("yt_", "")
+                    Log.d("VM_YT_RESOLVE", "Extracting live NewPipe audio stream link for: $cleanId")
+                    val extractedSong = ytExtractor.getSongFromVideoId(cleanId)
+                    extractedSong?.uri
+                } catch (e: Exception) {
+                    Log.e("VM_YT_RESOLVE", "Failed extracting YouTube stream path via NewPipe", e)
+                    null
+                }
+            },
+            jioSaavnApiService = jioSaavnApiService,
+            getAudioQualityPreference = {
+                if (isSettingsInitialized()) settings.audioQuality else "320kbps"
+            }
+        )
     }
 
-    var currentRepeatMode by mutableStateOf(RepeatMode.NONE)
-        private set
-    var isPlaying by mutableStateOf(false)
+    var currentPlaybackQueue by mutableStateOf<List<Song>>(emptyList())
         private set
 
-    private var mediaController: MediaController? = null
-
+    //UI STATE LISTS
     val songs = mutableStateListOf<Song>()
     val searchResults = mutableStateListOf<Song>()
-    val trendingOnlineSongs = mutableStateListOf<Song>()
-    val trendingHitSongs = mutableStateListOf<Song>()
+    val saavnTrendingSongs = mutableStateListOf<Song>()
+    val saavnNewReleases = mutableStateListOf<Song>()
+    val saavnHindiHits = mutableStateListOf<Song>()
+    val saavnSearchResults = mutableStateListOf<Song>()
+
+    // Loading States
+    var isLocalSongsLoading by mutableStateOf(false)
+        private set
     var isTrendingLoading by mutableStateOf(false)
         private set
-
-    var selectedSong by mutableStateOf<Song?>(null)
-
-    var currentPosition by mutableLongStateOf(0L)
+    var isNewReleasesLoading by mutableStateOf(false)
         private set
-    var totalDuration by mutableLongStateOf(0L)
+    var isHindiHitLoading by mutableStateOf(false)
+        private set
+    var isSearchLoading by mutableStateOf(false)
+        private set
+    var isSaavnLoading by mutableStateOf(false)
         private set
 
-    val playlists = mutableStateListOf<Playlist>()
-    var selectedPlaylist by mutableStateOf<Playlist?>(null)
+    val playlists get() = playlistController.playlists
+    var selectedPlaylist: Playlist?
+        get() = playlistController.selectedPlaylist
+        set(value) { playlistController.selectedPlaylist = value }
 
-    private var sharedPreferences: SharedPreferences? = null
-    private val gson = Gson()
+    // ========================= SUBSYSTEM INITIALIZERS =========================
+    fun initSettings(context: Context) {
+        if (::settings.isInitialized) return
+        settings = SettingsRepository(context.applicationContext, viewModelScope)
+    }
 
-    private val audioExtractor = com.sumit.muzixx.data.network.YouTubeAudioExtractor()
+    fun isSettingsInitialized(): Boolean {
+        return ::settings.isInitialized
+    }
 
-    init {
-        viewModelScope.launch {
-            while (true) {
-                mediaController?.let {
-                    if (it.isPlaying) {
-                        currentPosition = it.currentPosition
-                        if (totalDuration <= 0L || selectedSong?.isStreaming == true) {
-                            totalDuration = it.duration.coerceAtLeast(0L)
-                        }
-                    }
-                }
-                delay(1000)
-            }
-        }
+    fun initStatsManager(context: Context) {
+        if (::stats.isInitialized) return
+        stats = PlaybackStatsRepository(context.applicationContext, viewModelScope)
+    }
+
+    fun initMediaController(context: Context) {
+        playerController.initMediaController(context)
     }
 
     fun initStorage(context: Context) {
         sharedPreferences = context.getSharedPreferences("muzix_prefs", Context.MODE_PRIVATE)
-        loadPlaylistsFromStorage()
-    }
-
-    private fun loadPlaylistsFromStorage() {
         try {
             val json = sharedPreferences?.getString("custom_playlists", null)
-            if (!json.isNullOrEmpty()) {
-                val type = object : TypeToken<List<Playlist>>() {}.type
-                val savedPlaylists: List<Playlist> = gson.fromJson(json, type)
-
-                playlists.clear()
-                savedPlaylists.forEach { playlist ->
-                    playlists.add(Playlist(id = playlist.id, name = playlist.name, songs = playlist.songs))
-                }
-            }
+            playlistController.loadPlaylistsFromJson(json)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("PLAYLIST_STORAGE", "Corrupted storage cleared")
             sharedPreferences?.edit { remove("custom_playlists") }
         }
     }
 
     private fun savePlaylistsToStorage() {
-        val customLists = playlists.filter { it.id != "local_songs" && !it.id.startsWith("folder_") }
-        val json = gson.toJson(customLists)
+        val json = playlistController.getCustomPlaylistsJson()
         sharedPreferences?.edit { putString("custom_playlists", json) }
     }
 
-    fun createCustomPlaylist(name: String) {
-        if (name.isNotBlank()) {
-            val newPlaylist = Playlist(id = UUID.randomUUID().toString(), name = name, songs = emptyList())
-            playlists.add(newPlaylist)
-            savePlaylistsToStorage()
-        }
-    }
-
-    fun addSongToPlaylist(playlistId: String, song: Song) {
-        val index = playlists.indexOfFirst { it.id == playlistId }
-        if (index != -1) {
-            val targetPlaylist = playlists[index]
-            if (!targetPlaylist.songs.contains(song)) {
-                val updatedSongs = targetPlaylist.songs + song
-                playlists[index] = targetPlaylist.copy(songs = updatedSongs)
-                savePlaylistsToStorage()
-
-                if (selectedPlaylist?.id == playlistId) {
-                    selectedPlaylist = playlists[index]
-                }
-            }
-        }
-    }
-
-    fun loadSongs(songList: List<Song>) {
-        songs.clear()
-        songs.addAll(songList)
-    }
-
-    fun loadSearchResults(results: List<Song>) {
-        searchResults.clear()
-        searchResults.addAll(results)
-    }
-
-    fun initializeLocalSongsPlaylist() {
-        if (playlists.none { it.id == "local_songs" }) {
-            playlists.add(0, Playlist(id = "local_songs", name = "Local Songs", songs = songs))
-        }
-
-        val groupedFolders = songs.groupBy { it.folderName }
-
-        groupedFolders.forEach { (folderName, folderSongs) ->
-            val generatedFolderId = "folder_$folderName"
-
-            if (playlists.none { it.id == generatedFolderId }) {
-                playlists.add(
-                    Playlist(
-                        id = generatedFolderId,
-                        name = "$folderName",
-                        songs = folderSongs
-                    )
-                )
-            }
-        }
-    }
-
-    fun loadOnlineTrendingContent() {
-        viewModelScope.launch(Dispatchers.IO) {
-            if (trendingOnlineSongs.isNotEmpty()) return@launch
-            try {
-                isTrendingLoading = true
-                val scraper = com.sumit.muzixx.data.network.YouTubeMusicScraper()
-                val liveTracks = scraper.fetchTrendingSongs()
-
-                withContext(Dispatchers.Main) {
-                    trendingOnlineSongs.clear()
-                    trendingOnlineSongs.addAll(liveTracks.take(10))
-                }
-            } catch (e: Exception) {
-                Log.e("TRENDING_VM", "Failed to pull live charts: ${e.message}")
-            } finally {
-                isTrendingLoading = false
-            }
-        }
-    }
-
-    fun loadOnlineHindiHitsContent() {
-        viewModelScope.launch(Dispatchers.IO) {
-            if (trendingHitSongs.isNotEmpty()) return@launch
-            try {
-                isTrendingLoading = true
-                val scraper = com.sumit.muzixx.data.network.YouTubeMusicScraper()
-                val liveTracks = scraper.fetchHindiHitsSongs()
-
-                withContext(Dispatchers.Main) {
-                    trendingHitSongs.clear()
-                    trendingHitSongs.addAll(liveTracks.take(10))
-                }
-            } catch (e: Exception) {
-                Log.e("Hindi_Hits_VM", "Failed to pull live charts: ${e.message}")
-            } finally {
-                isTrendingLoading = false
-            }
-        }
-    }
-
-    fun playSong(context: Context, songList: List<Song>, startIndex: Int) {
-        if (songList.isEmpty() || startIndex !in songList.indices) return
-
-        val song = songList[startIndex]
-
+    //Data Searcher
+    fun searchJioSaavn(query: String) {
+        if (query.isBlank()) return
         viewModelScope.launch {
-            val controller = mediaController ?: run {
-                Log.e(TAG, "MediaController framework not initialized yet.")
-                return@launch
-            }
+            isSaavnLoading = true
+            try {
+                val response = withContext(Dispatchers.IO) { jioSaavnApiService.searchSongs(query) }
+                if (response.success) {
+                    val tracks = response.data?.songs ?: emptyList()
+                    val mappedTracks = tracks.map { it.toSong("JioSaavn Search Result") }
 
-            if (!song.isStreaming) {
-                Log.d(TAG, "Playing local offline track: ${song.id}")
-
-                val mediaItems = songList.map { track ->
-                    val mediaMetadata = MediaMetadata.Builder()
-                        .setTitle(track.title)
-                        .setArtist(track.artist)
-                        .setArtworkUri(track.artUri?.toUri())
-                        .build()
-
-                    MediaItem.Builder()
-                        .setMediaId(track.id)
-                        .setUri(track.uri)
-                        .setMediaMetadata(mediaMetadata)
-                        .build()
-                }
-
-                selectedSong = song
-                controller.setMediaItems(mediaItems, startIndex, 0L)
-                controller.prepare()
-                controller.play()
-                return@launch
-            }
-
-            Log.d(TAG, "Requesting backend video extraction context for streaming ID: ${song.id}")
-
-            val enrichedStreamingSong = audioExtractor.getSongFromVideoId(song.id)
-
-            if (enrichedStreamingSong != null && enrichedStreamingSong.uri.isNotBlank()) {
-                Log.d(TAG, "Link extraction success! Building media track element.")
-
-                val mediaItems = songList.map { track ->
-                    val isTarget = (track.id == enrichedStreamingSong.id)
-                    val mediaMetadataItem = MediaMetadata.Builder()
-                        .setTitle(if (isTarget) enrichedStreamingSong.title else track.title)
-                        .setArtist(if (isTarget) enrichedStreamingSong.artist else track.artist)
-                        .setArtworkUri(if (isTarget) enrichedStreamingSong.artUri?.toUri() else track.artUri?.toUri())
-                        .build()
-
-                    MediaItem.Builder()
-                        .setMediaId(track.id)
-                        .setUri(if (isTarget) enrichedStreamingSong.uri.toUri() else track.id.toUri())
-                        .setMediaMetadata(mediaMetadataItem)
-                        .build()
-                }
-
-                selectedSong = enrichedStreamingSong
-
-                withContext(Dispatchers.Main) {
-                    controller.setMediaItems(mediaItems, startIndex, 0L)
-                    controller.prepare()
-                    controller.play()
-                }
-            } else {
-                Log.e(TAG, "Direct streaming link extraction pipeline returned null/empty payload.")
-            }
-        }
-    }
-
-    private val playerListener = object : Player.Listener {
-        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-            super.onMediaItemTransition(mediaItem, reason)
-
-            mediaController?.let { controller ->
-                if (mediaItem == null) return
-
-                val metadata = mediaItem.mediaMetadata
-                val mediaId = mediaItem.mediaId
-
-                val checkStreaming = mediaId.startsWith("http") || !mediaId.all { it.isDigit() }
-
-                val currentTrack = Song(
-                    id = mediaId,
-                    title = metadata.title?.toString() ?: "Unknown Title",
-                    artist = metadata.artist?.toString() ?: "Unknown Artist",
-                    uri = mediaItem.localConfiguration?.uri?.toString() ?: "",
-                    artUri = metadata.artworkUri?.toString(),
-                    duration = if (checkStreaming) 0L else controller.duration.coerceAtLeast(0L),
-                    isStreaming = checkStreaming
-                )
-
-                val currentIndex = controller.currentMediaItemIndex
-
-                if (currentTrack.isStreaming && (mediaItem.localConfiguration?.uri?.toString() == currentTrack.id || mediaItem.localConfiguration?.uri?.toString()?.length == 11)) {
-                    viewModelScope.launch {
-                        Log.d(TAG, "Running auto-advance engine extraction check for track: ${currentTrack.id}")
-                        val freshTrackInfo = audioExtractor.getSongFromVideoId(currentTrack.id)
-
-                        if (freshTrackInfo != null && freshTrackInfo.uri.isNotBlank()) {
-                            val updatedItem = mediaItem.buildUpon().setUri(freshTrackInfo.uri.toUri()).build()
-                            withContext(Dispatchers.Main) {
-                                controller.replaceMediaItem(currentIndex, updatedItem)
-                                controller.prepare()
-                                controller.play()
-                            }
-                        }
+                    withContext(Dispatchers.Main) {
+                        saavnSearchResults.clear()
+                        saavnSearchResults.addAll(mappedTracks)
                     }
                 }
-
-                selectedSong = currentTrack
-                totalDuration = controller.duration.coerceAtLeast(0L)
+            } catch (e: Exception) {
+                Log.e("SAAVN_SEARCH_ERROR", "Search parsing failed: ${e.message}")
+                withContext(Dispatchers.Main) { saavnSearchResults.clear() }
+            } finally {
+                isSaavnLoading = false
             }
         }
+    }
 
-        override fun onPlaybackStateChanged(playbackState: Int) {
-            super.onPlaybackStateChanged(playbackState)
-            mediaController?.let { controller ->
-                if (playbackState == Player.STATE_READY) {
-                    totalDuration = controller.duration.coerceAtLeast(0L)
+    fun searchOnlineSongs(query: String) {
+        if (query.isBlank()) return
+        viewModelScope.launch {
+            isSearchLoading = true
+            try {
+                val scrapedResults = ytScraper.searchSongs(query.trim())
+                withContext(Dispatchers.Main) {
+                    searchResults.clear()
+                    searchResults.addAll(scrapedResults)
                 }
+            } catch (e: Exception) {
+                Log.e("YT_SEARCH_ERROR", "Failed pulling YouTube matches: ${e.message}", e)
+                withContext(Dispatchers.Main) { searchResults.clear() }
+            } finally {
+                isSearchLoading = false
             }
         }
+    }
 
-        override fun onIsPlayingChanged(isPlayingNow: Boolean) {
-            isPlaying = isPlayingNow
-            if (isPlayingNow) {
-                mediaController?.let { controller ->
-                    totalDuration = controller.duration.coerceAtLeast(0L)
+    fun loadJioSaavnHomeContent() {
+        if (isTrendingLoading || isNewReleasesLoading || isHindiHitLoading) return
+        viewModelScope.launch(Dispatchers.IO) {
+            isTrendingLoading = true
+            isNewReleasesLoading = true
+            isHindiHitLoading = true
+            try {
+                val trendingDeferred = async(Dispatchers.IO) {
+                    try { jioSaavnApiService.getPlaylistDetails("932189657") } catch(e: Exception) { null }
+                }
+                val newReleasesDeferred = async(Dispatchers.IO) {
+                    try { jioSaavnApiService.getPlaylistDetails("155321561") } catch(e: Exception) { null }
+                }
+                val hindiHitsDeferred = async(Dispatchers.IO) {
+                    try { jioSaavnApiService.getPlaylistDetails("1080335349") } catch(e: Exception) { null }
+                }
+
+                val trendingSongsList = trendingDeferred.await()?.data?.songs?.map { it.toSong("JioSaavn Trending") } ?: emptyList()
+                val releasesSongsList = newReleasesDeferred.await()?.data?.songs?.map { it.toSong("JioSaavn New Releases") } ?: emptyList()
+                val hindiHitsSongsList = hindiHitsDeferred.await()?.data?.songs?.map { it.toSong("Hindi Hits") } ?: emptyList()
+
+                withContext(Dispatchers.Main) {
+                    saavnTrendingSongs.clear()
+                    saavnTrendingSongs.addAll(trendingSongsList)
+                    saavnNewReleases.clear()
+                    saavnNewReleases.addAll(releasesSongsList)
+                    saavnHindiHits.clear()
+                    saavnHindiHits.addAll(hindiHitsSongsList)
+                }
+            } catch (e: Exception) {
+                Log.e("SAAVN_HOME_ERROR", "Failed to load curated home grids: ${e.message}")
+            } finally {
+                isTrendingLoading = false
+                isNewReleasesLoading = false
+                isHindiHitLoading = false
+            }
+        }
+    }
+
+    fun loadLocalSongsWithLoadingState(songList: List<Song>) {
+        viewModelScope.launch {
+            isLocalSongsLoading = true
+            songs.clear()
+            songs.addAll(songList)
+            playlistController.initializeLocalSongsPlaylist(songs)
+            isLocalSongsLoading = false
+        }
+    }
+
+    fun playMusicCollection(songList: List<Song>, startIndex: Int) {
+        if (songList.isEmpty() || startIndex !in songList.indices) return
+
+        playerController.submitQueueToPlayer(songList, startIndex)
+        currentPlaybackQueue = songList
+    }
+
+    fun playSaavnSong(songList: List<Song>, startIndex: Int) = playMusicCollection(songList, startIndex)
+    fun playYouTubeSong(songList: List<Song>, startIndex: Int) = playMusicCollection(songList, startIndex)
+    fun playLocalSong(songList: List<Song>, startIndex: Int) = playMusicCollection(songList, startIndex)
+
+    private fun handleQueueLookaheadAutoplay() {
+        val currentSong = selectedSong ?: return
+        val currentIndex = activePlaylistIndex
+        val totalQueueLength = activePlaybackQueue.size
+
+        if (currentIndex >= totalQueueLength - 2) {
+            if (currentSong.id.all { it.isDigit() } || currentSong.artist.contains("JioSaavn") || currentSong.title.contains("JioSaavn")) {
+                viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        val response = jioSaavnApiService.getSongSuggestions(currentSong.id)
+                        val suggestedSongs = response.data?.songs?.map { it.toSong("Autoplay Suggestion") } ?: emptyList()
+                        withContext(Dispatchers.Main) { playerController.injectTracksToQueue(suggestedSongs) }
+                    } catch (e: Exception) {
+                        Log.e("INFINITE_AUTOPLAY", "Failed updating recommendations pipeline", e)
+                    }
+                }
+            } else {
+                viewModelScope.launch(Dispatchers.IO) {
+                    try {
+                        val relatedSongs = emptyList<Song>()
+                        withContext(Dispatchers.Main) { playerController.injectTracksToQueue(relatedSongs) }
+                    } catch (e: Exception) {
+                        Log.e("INFINITE_YT_AUTOPLAY", "Failed updating related video queue", e)
+                    }
                 }
             }
         }
     }
 
     fun seekTo(position: Long) {
-        mediaController?.seekTo(position)
-        currentPosition = position
+        mediaStateHolder.updateManualSeekPosition(position)
+        playerController.seekTo(position)
     }
 
-    fun togglePlayPause() {
-        mediaController?.let {
-            if (it.isPlaying) {
-                it.pause()
-                isPlaying = false
-            } else {
-                it.play()
-                isPlaying = true
-            }
-        }
-    }
+    fun togglePlayPause() = playerController.togglePlayPause()
+    fun playNext() = playerController.playNext()
+    fun playPrevious() = playerController.playPrevious()
 
-    fun toggleRepeatMode() {
-        currentRepeatMode = when (currentRepeatMode) {
-            RepeatMode.NONE -> RepeatMode.ALL
-            RepeatMode.ALL -> RepeatMode.ONE
-            RepeatMode.ONE -> RepeatMode.NONE
-        }
+    // ========================= PLAYLIST MANIPULATION =========================
+    fun createCustomPlaylist(name: String) = playlistController.createCustomPlaylist(name)
+    fun addSongToPlaylist(playlistId: String, song: Song) = playlistController.addSongToPlaylist(playlistId, song)
+    fun removeSongFromPlaylist(playlistId: String, song: Song) = playlistController.removeSongFromPlaylist(playlistId, song)
+    fun renamePlaylist(playlistId: String, newName: String) = playlistController.renamePlaylist(playlistId, newName)
+    fun deletePlaylist(playlistId: String) = playlistController.deletePlaylist(playlistId)
 
-        mediaController?.repeatMode = when (currentRepeatMode) {
-            RepeatMode.NONE -> Player.REPEAT_MODE_OFF
-            RepeatMode.ALL -> Player.REPEAT_MODE_ALL
-            RepeatMode.ONE -> Player.REPEAT_MODE_ONE
-        }
-    }
-
-    fun playNext() {
-        mediaController?.let {
-            if (it.hasNextMediaItem()) {
-                it.seekToNextMediaItem()
-            }
-        }
-    }
-
-    fun playPrevious() {
-        mediaController?.let {
-            if (it.hasPreviousMediaItem()) {
-                it.seekToPreviousMediaItem()
-            }
-        }
-    }
-
-    fun initMediaController(context: Context) {
-        val sessionToken = SessionToken(context, ComponentName(context, PlaybackService::class.java))
-        val controllerFuture = MediaController.Builder(context, sessionToken).buildAsync()
-
-        controllerFuture.addListener({
-            mediaController = controllerFuture.get()
-            mediaController?.addListener(playerListener)
-        }, MoreExecutors.directExecutor())
+    fun triggerUpdateCheck(context: Context) {
+        viewModelScope.launch { UpdateChecker.check(context, isManualCheck = true) }
     }
 
     override fun onCleared() {
         super.onCleared()
-        mediaController?.removeListener(playerListener)
-        mediaController = null
+        if (::stats.isInitialized) {
+            stats.stopPlaybackTimer()
+        }
+        playerController.release()
     }
 }

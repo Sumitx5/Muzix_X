@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,14 +8,16 @@ plugins {
 
 android {
     namespace = "com.sumit.muzixx"
+    //noinspection GradleDependency
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.sumit.muzixx"
         minSdk = 24
+        //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 2
-        versionName = "1.2.1-beta_1"
+        versionName = "1.2.6"
 
         multiDexEnabled = true
 
@@ -54,24 +58,43 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.compose.material.icons.extended)
+    //noinspection UseTomlInstead,GradleDependency
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    //noinspection UseTomlInstead,GradleDependency
+    implementation("androidx.datastore:datastore-core:1.1.1")
+    //noinspection UseTomlInstead,GradleDependency
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    //noinspection UseTomlInstead,GradleDependency
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
-    val media3Version = "1.5.0"
+    val media3Version = "1.4.1"
+    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.media3:media3-exoplayer:$media3Version")
+    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.media3:media3-common:$media3Version")
+    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.media3:media3-session:$media3Version")
+    //noinspection GradleDependency,UseTomlInstead
     implementation("androidx.media3:media3-datasource-okhttp:$media3Version")
 
+    //noinspection UseTomlInstead
     implementation("io.coil-kt:coil-compose:2.7.0")
+    //noinspection UseTomlInstead
     implementation("com.google.code.gson:gson:2.14.0")
 
+    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-client-core:2.3.11")
+    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-client-okhttp:2.3.11")
+    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-client-content-negotiation:2.3.11")
+    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.11")
 
+    //noinspection UseTomlInstead,NewerVersionAvailable
+    implementation("com.github.teamnewpipe:NewPipeExtractor:0.26.2")
 
-    implementation("com.github.teamnewpipe:NewPipeExtractor:0.26.1")
-
+    //noinspection UseTomlInstead, GradleDependency
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.0.4")
 
     testImplementation(libs.junit)
