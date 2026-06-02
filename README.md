@@ -21,9 +21,9 @@ An elegant, high-performance Android music streaming and local playback applicat
 
 ## 📱 App Screenshots
 
-| Home Screen & Discovery | Active Player UI | Search Online |
+| Home Screen & Discovery | Active Player UI | Drawer |
 | :---: | :---: | :---: |
-| <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/home_page.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/player.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/search.jpg" width="280"> |
+| <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/home.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/player.jpg" width="280"> | <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/Screenshots/drawer.jpg" width="280"> |
 
 ---
 
@@ -48,4 +48,5 @@ To install the latest stable production build, head directly over to the release
 ## 🤝 Credits & Acknowledgments
 
 * **YouTube Extraction Layer:** Powered by [`SimpMusic Kotlin:youtube-Extractor`](https://github.com/maxrave-dev/kotlin-youtubeExtractor) & [`Pipe`](https://github.com/TeamNewPipe/NewPipe) parsing engines.
+* **Jio Saavn Unofficial Api:** [Link](https://saavn.sumit.co/docs)
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
