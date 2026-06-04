@@ -23,6 +23,7 @@ class SettingsManager(private val context: Context) {
         val CHECK_UPDATES_ON_START = booleanPreferencesKey("check_updates_on_start")
         val AUDIO_QUALITY = stringPreferencesKey("audio_quality")
         val USER_NAME = stringPreferencesKey("user_name")
+        val APP_THEME = stringPreferencesKey("app_theme")
     }
 
     val streamWifiOnlyFlow: Flow<Boolean> = context.dataStore.data.map { it[STREAM_WIFI_ONLY] ?: false }
@@ -33,6 +34,7 @@ class SettingsManager(private val context: Context) {
     val checkUpdatesOnStartFlow: Flow<Boolean> = context.dataStore.data.map { it[CHECK_UPDATES_ON_START] ?: false }
     val audioQualityFlow: Flow<String> = context.dataStore.data.map { it[AUDIO_QUALITY] ?: "320kbps" }
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME] ?: "User" }
+    val appThemeFlow: Flow<String> = context.dataStore.data.map {it[APP_THEME] ?: "Default"}
 
     suspend fun saveBooleanSetting(key: Preferences.Key<Boolean>, value: Boolean) {
         context.dataStore.edit { preferences ->
