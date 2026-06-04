@@ -12,6 +12,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
@@ -63,12 +64,22 @@ fun FullPlayerScreen(
 
     val defaultAccent = remember { Color(0xFF230305) }
     var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
-
+    //Color Accent Art Handle
     val animatedAccentColor by animateColorAsState(
         targetValue = dynamicAccentColor,
         animationSpec = tween(durationMillis = 600),
         label = "DynamicThemeAccent"
     )
+    //Playlist Handle
+    val userCreatedPlaylists by remember {
+        derivedStateOf {
+            viewModel.playlists.filter { playlist ->
+                playlist.id != "local_songs" &&
+                        !playlist.id.startsWith("folder_") &&
+                        playlist.name != "Local Songs"
+            }
+        }
+    }
 
     LaunchedEffect(song?.artUri) {
         if (song?.artUri != null) {
@@ -106,6 +117,7 @@ fun FullPlayerScreen(
         viewModel.saavnTrendingSongs,
         viewModel.saavnNewReleases,
         viewModel.saavnSearchResults,
+        viewModel.searchResults,
         viewModel.saavnHindiHits,
         viewModel.songs
     ) {
@@ -116,6 +128,7 @@ fun FullPlayerScreen(
             viewModel.saavnNewReleases.any { it.id == song?.id } -> viewModel.saavnNewReleases
             viewModel.saavnSearchResults.any { it.id == song?.id } -> viewModel.saavnSearchResults
             viewModel.saavnHindiHits.any { it.id == song?.id } -> viewModel.saavnHindiHits
+            viewModel.searchResults.any { it.id == song?.id } -> viewModel.searchResults
             else -> viewModel.songs
         }
     }
@@ -127,6 +140,7 @@ fun FullPlayerScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showQueueSheet by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
 
     val customRed = remember { Color(0xFFE50914) }
     val customLightGrey = remember { Color(0xFFB3B3B3) }
@@ -177,8 +191,8 @@ fun FullPlayerScreen(
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        animatedAccentColor.copy(alpha = 0.40f),
-                        animatedAccentColor.copy(alpha = 0.18f),
+                        animatedAccentColor.copy(alpha = 0.70f),
+                        animatedAccentColor.copy(alpha = 0.45f),
                         Color.Transparent
                     ),
                     endY = 1400f
@@ -229,7 +243,63 @@ fun FullPlayerScreen(
                     placeholder = painterResource(id = R.drawable.default_music),
                     contentScale = ContentScale.Crop
                 )
+
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(16.dp)
+                ){
+                    IconButton(
+                        onClick = { showOptionsMenu = true },
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(16.dp)
+                            .background(
+                                color = Color.Black.copy(alpha = 0.4f),
+                                shape = CircleShape
+                            )
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = "Song Information Options Menu",
+                            tint = Color.White
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = showOptionsMenu,
+                        onDismissRequest = { showOptionsMenu = false },
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("About Song", fontWeight = FontWeight.Medium) },
+                            onClick = { showOptionsMenu = false }
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Lyrics", fontWeight = FontWeight.Medium) },
+                            onClick = { showOptionsMenu = false}
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Add to Playlist", fontWeight = FontWeight.Medium) },
+                            onClick = {
+                                showOptionsMenu = false
+                                if (song != null) {
+                                    showPlaylistDialog = true
+                                }
+                            }
+                        )
+
+                        DropdownMenuItem(
+                            text = { Text("Download", fontWeight = FontWeight.Medium) },
+                            onClick = { showOptionsMenu = false }
+                        )
+                    }
+                }
             }
+
 
             //TITLE & METADATA CONTENT AREA
             Column(
@@ -311,14 +381,14 @@ fun FullPlayerScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (viewModel.isPlaying) customRed else Color.White)
+                        .background(if (viewModel.isPlaying) customRed else customLightGrey)
                         .clickable { viewModel.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                         contentDescription = "Play Pause Toggle",
-                        tint = if (viewModel.isPlaying) Color.White else Color.Black,
+                        tint = Color.White,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -360,37 +430,6 @@ fun FullPlayerScreen(
                     )
                 }
 
-                Box(contentAlignment = Alignment.TopCenter) {
-                    IconButton(onClick = { showOptionsMenu = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Info,
-                            contentDescription = "Song Information Options Menu",
-                            tint = customLightGrey,
-                            modifier = Modifier.size(25.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showOptionsMenu,
-                        onDismissRequest = { showOptionsMenu = false },
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.clip(RoundedCornerShape(12.dp))
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("About Song", fontWeight = FontWeight.Medium) },
-                            onClick = { showOptionsMenu = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Add to Playlist", fontWeight = FontWeight.Medium) },
-                            onClick = { showOptionsMenu = false }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Download", fontWeight = FontWeight.Medium) },
-                            onClick = { showOptionsMenu = false }
-                        )
-                    }
-                }
-
                 // Right: Queue Sheet Button
                 IconButton(onClick = { showQueueSheet = true }) {
                     Icon(
@@ -401,6 +440,65 @@ fun FullPlayerScreen(
                     )
                 }
             }
+        }
+        //Playlist Add Button
+        if (showPlaylistDialog && song != null) {
+            AlertDialog(
+                onDismissRequest = { showPlaylistDialog = false },
+                containerColor = Color(0xFF161616),
+                title = {
+                    Text("Add to Playlist", color = Color.White, fontWeight = FontWeight.Bold)
+                },
+                text = {
+                    if (userCreatedPlaylists.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text("No custom playlists found", color = customLightGrey)
+                        }
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp)
+                        ) {
+                            itemsIndexed(userCreatedPlaylists) { _, playlist ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable {
+                                            viewModel.addSongToPlaylist(playlist.id, song)
+                                            showPlaylistDialog = false
+                                        }
+                                        .padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Filled.List,
+                                        contentDescription = null,
+                                        tint = customRed,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = playlist.name,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showPlaylistDialog = false }) {
+                        Text("Cancel", color = customRed)
+                    }
+                }
+            )
         }
 
         //NATIVE STREAM TRACK QUEUE DRAWER
