@@ -2,10 +2,15 @@ package com.sumit.muzixx.data.model
 
 import com.google.gson.annotations.SerializedName
 
-// Wrapper for search endpoints and playlist tracks
+//Wrapper for search endpoints and playlist tracks
 data class SaavnPlaylistResponse(
     @SerializedName("success") val success: Boolean,
     @SerializedName("data") val data: SaavnPlaylistData?
+)
+
+data class SaavnDirectSongResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data") val data: List<SaavnTrackData>?
 )
 
 data class SaavnPlaylistData(

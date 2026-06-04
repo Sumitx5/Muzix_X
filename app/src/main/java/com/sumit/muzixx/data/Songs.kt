@@ -8,5 +8,6 @@ data class Song(
     val artUri: String?,
     val duration: Long,
     val isStreaming: Boolean,
-    val folderName: String = "Unknown"
+    val folderName: String = "Unknown",
+    val type: String
 )
