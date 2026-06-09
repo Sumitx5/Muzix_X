@@ -43,8 +43,9 @@ class MusicViewModel : ViewModel() {
     val selectedSong get() = playerController.selectedSong
     val currentPosition get() = mediaStateHolder.currentPosition
     val totalDuration get() = mediaStateHolder.totalDuration
+    val currentRepeatMode get() = playerController.currentRepeatMode
 
-    val mediaController get() = playerController.mediaController
+//    val mediaController get() = playerController.mediaController
     val activePlaylistIndex get() = playerController.activePlaylistIndex
     val activePlaybackQueue get() = playerController.activePlaybackQueue
 
@@ -87,6 +88,9 @@ class MusicViewModel : ViewModel() {
             jioSaavnApiService = jioSaavnApiService,
             getAudioQualityPreference = {
                 if (isSettingsInitialized()) settings.audioQuality else "320kbps"
+            },
+            getStreamWifiOnlyPreference = {
+                if (isSettingsInitialized()) settings.streamWifiOnly else false
             }
         )
     }
@@ -104,6 +108,9 @@ class MusicViewModel : ViewModel() {
     val saavnNewReleases = mutableStateListOf<Song>()
     val saavnHindiHits = mutableStateListOf<Song>()
     val saavnSearchResults = mutableStateListOf<Song>()
+    val saavnPlaylistSearchResults = mutableStateListOf<com.sumit.muzixx.data.model.SaavnCloudPlaylistObject>()
+    var currentCloudPlaylistName by mutableStateOf<String?>(null)
+    val currentCloudPlaylistSongs = mutableStateListOf<Song>()
 
     // Loading States
     var isLocalSongsLoading by mutableStateOf(false)
@@ -117,6 +124,8 @@ class MusicViewModel : ViewModel() {
     var isSearchLoading by mutableStateOf(false)
         private set
     var isSaavnLoading by mutableStateOf(false)
+        private set
+    var isCloudPlaylistLoading by mutableStateOf(false)
         private set
 
     val playlists get() = playlistController.playlists
@@ -148,7 +157,7 @@ class MusicViewModel : ViewModel() {
         try {
             val json = sharedPreferences?.getString("custom_playlists", null)
             playlistController.loadPlaylistsFromJson(json)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Log.e("PLAYLIST_STORAGE", "Corrupted storage cleared")
             sharedPreferences?.edit { remove("custom_playlists") }
         }
@@ -242,7 +251,7 @@ class MusicViewModel : ViewModel() {
                 withContext(Dispatchers.Main) {
                     cacheSizeText = String.format("%.2f MB", megaBytes)
                 }
-            } catch (e: Exception) {
+            } catch (_: Exception) {
                 withContext(Dispatchers.Main) { cacheSizeText = "0.00 MB" }
             }
         }
@@ -301,7 +310,6 @@ class MusicViewModel : ViewModel() {
     fun loadJioSaavnHomeContent() {
         if (isTrendingLoading || isNewReleasesLoading || isHindiHitLoading) return
 
-        // 💡 FIXED: Safely write to initial Compose loader structures on Main thread context
         isTrendingLoading = true
         isNewReleasesLoading = true
         isHindiHitLoading = true
@@ -309,13 +317,13 @@ class MusicViewModel : ViewModel() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val trendingDeferred = async(Dispatchers.IO) {
-                    try { jioSaavnApiService.getPlaylistDetails("932189657") } catch(e: Exception) { null }
+                    try { jioSaavnApiService.getPlaylistDetails("110858205") } catch(_: Exception) { null }
                 }
                 val newReleasesDeferred = async(Dispatchers.IO) {
-                    try { jioSaavnApiService.getPlaylistDetails("155321561") } catch(e: Exception) { null }
+                    try { jioSaavnApiService.getPlaylistDetails("47599074") } catch(_: Exception) { null }
                 }
                 val hindiHitsDeferred = async(Dispatchers.IO) {
-                    try { jioSaavnApiService.getPlaylistDetails("1080335349") } catch(e: Exception) { null }
+                    try { jioSaavnApiService.getPlaylistDetails("1134543272") } catch(_: Exception) { null }
                 }
 
                 val trendingSongsList = trendingDeferred.await()?.data?.songs?.map { it.toSong("JioSaavn Trending") } ?: emptyList()
@@ -340,6 +348,55 @@ class MusicViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    fun searchJioSaavnPlaylists(query: String) {
+        if (query.isBlank()) return
+        viewModelScope.launch {
+            try {
+                val response = withContext(Dispatchers.IO) { jioSaavnApiService.searchPlaylists(query) }
+                if (response.success) {
+                    val playlistsFound = response.data?.results ?: emptyList()
+
+                    withContext(Dispatchers.Main) {
+                        saavnPlaylistSearchResults.clear()
+                        saavnPlaylistSearchResults.addAll(playlistsFound)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SAAVN_PLAYLIST_ERROR", "Failed to lookup playlists: ${e.message}")
+                withContext(Dispatchers.Main) { saavnPlaylistSearchResults.clear() }
+            }
+        }
+    }
+
+    fun loadCloudPlaylistDetails(playlistId: String, playlistName: String) {
+        if (playlistId.isBlank()) return
+        viewModelScope.launch {
+            isCloudPlaylistLoading = true
+            currentCloudPlaylistSongs.clear()
+            currentCloudPlaylistName = playlistName
+            try {
+                val response = withContext(Dispatchers.IO) { jioSaavnApiService.getPlaylistDetails(playlistId) }
+                if (response.success) {
+                    val tracks = response.data?.songs ?: emptyList()
+                    val mappedTracks = tracks.map { it.toSong("Cloud Playlist: $playlistName") }
+
+                    withContext(Dispatchers.Main) {
+                        currentCloudPlaylistSongs.addAll(mappedTracks)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("SAAVN_PLAYL_ERROR", "Failed to fetch cloud playlist layout rows: ${e.message}")
+            } finally {
+                isCloudPlaylistLoading = false
+            }
+        }
+    }
+
+    fun closeCloudPlaylistDetails() {
+        currentCloudPlaylistName = null
+        currentCloudPlaylistSongs.clear()
     }
 
     fun loadLocalSongsWithLoadingState(songList: List<Song>) {
@@ -432,5 +489,9 @@ class MusicViewModel : ViewModel() {
             stats.stopPlaybackTimer()
         }
         playerController.release()
+    }
+
+    fun toggleRepeatMode() {
+        playerController.cycleRepeatMode()
     }
 }
