@@ -2,6 +2,7 @@ package com.sumit.muzixx.data.network
 
 import com.sumit.muzixx.data.model.SaavnDirectSongResponse
 import com.sumit.muzixx.data.model.SaavnPlaylistResponse
+import com.sumit.muzixx.data.model.SaavnPlaylistSearchResponse
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
@@ -10,18 +11,12 @@ import retrofit2.http.Query
 
 interface JioSaavnApiService {
 
-    //Global Search
-    @GET("api/search")
-    suspend fun globalSearch(
-        @Query("query") query: String
-    ): SaavnPlaylistResponse
-
-    //Dedicated Song Search (Paged)
+    //Dedicated Song Search
     @GET("api/search/songs")
     suspend fun searchSongs(
         @Query("query") query: String,
         @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 20
+        @Query("limit") limit: Int = 40
     ): SaavnPlaylistResponse
 
     //Auto Suggestions
@@ -31,10 +26,19 @@ interface JioSaavnApiService {
         @Query("limit") limit: Int = 10
     ): SaavnPlaylistResponse
 
+    //Playlist Search
+    @GET("/api/search/playlists")
+    suspend fun searchPlaylists(
+        @Query("query") query: String,
+        @Query("page") page: Int = 1,
+        @Query("limit") limit: Int = 10
+    ): SaavnPlaylistSearchResponse
+
     //Playlist Details
     @GET("api/playlists")
     suspend fun getPlaylistDetails(
-        @Query("id") id: String
+        @Query("id") id: String,
+        @Query("limit") limit: Int = 40
     ): SaavnPlaylistResponse
 
     //Individual Song
