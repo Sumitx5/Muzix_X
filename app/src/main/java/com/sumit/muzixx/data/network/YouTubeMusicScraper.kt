@@ -10,7 +10,6 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 class YouTubeMusicScraper {
 
-    // Clean regex to extract the 11-character video ID from any YouTube stream URL safely
     private val videoIdRegex = "(?:v=|\\/v\\/|embed\\/|youtu\\.be\\/|\\/shorts\\/)([^\"&?\\/\\s]{11})".toRegex()
 
     suspend fun searchSongs(query: String): List<Song> = withContext(Dispatchers.IO) {
@@ -24,7 +23,6 @@ class YouTubeMusicScraper {
                 if (item is StreamInfoItem) {
                     val videoUrl = item.url ?: continue
 
-                    // FIXED: Extract the video ID natively via regex matching instead of the fake utility method
                     val matchResult = videoIdRegex.find(videoUrl)
                     val videoId = matchResult?.groupValues?.get(1) ?: continue
 
@@ -33,14 +31,15 @@ class YouTubeMusicScraper {
 
                     list.add(
                         Song(
-                            id = "yt_$videoId", // Unified tracking prefix
+                            id = "yt_$videoId",
                             title = item.name ?: "Unknown Title",
                             artist = item.uploaderName ?: "Unknown Artist",
                             uri = "",
                             artUri = artworkUrl,
                             duration = item.duration * 1000L,
                             isStreaming = true,
-                            folderName = "YouTube Music"
+                            folderName = "YouTube Music",
+                            type = "yt"
                         )
                     )
                 }
