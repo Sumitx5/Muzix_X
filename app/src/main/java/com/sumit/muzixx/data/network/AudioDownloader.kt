@@ -1,14 +1,15 @@
 package com.sumit.muzixx.data.network
 
 import android.content.Context
+import com.sumit.muzixx.utils.NetworkUtils.isWifiConnected
 import android.os.Environment
 import android.widget.Toast
 import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.repository.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import org.schabi.newpipe.extractor.StreamingService
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import java.io.File
 import java.io.FileOutputStream
@@ -16,9 +17,16 @@ import java.io.FileOutputStream
 object AudioDownloader {
     private val client = OkHttpClient()
 
-    suspend fun downloadTrack(context: Context, song: Song) {
+    suspend fun downloadTrack(context: Context, song: Song, settings: SettingsRepository) {
         withContext(Dispatchers.IO) {
             try {
+                val downloadOverWifiOnly = settings.downloadWifiOnly
+
+                if (downloadOverWifiOnly && !isWifiConnected(context)) {
+                    showToast(context, "Download blocked: Wi-Fi connection required.")
+                    return@withContext
+                }
+
                 val downloadUrl = if (song.id.startsWith("yt_") || song.type.lowercase().trim() == "yt") {
                     val videoId = song.id.removePrefix("yt_")
                     val videoUrl = "https://www.youtube.com/watch?v=$videoId"
