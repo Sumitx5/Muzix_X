@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -57,7 +58,6 @@ fun LibraryLoadingOverlay(customRed: Color) {
 fun PlaylistDetailView(
     currentPlaylist: Playlist,
     viewModel: MusicViewModel,
-    customRed: Color,
     customLightGrey: Color,
     bottomPadding: androidx.compose.ui.unit.Dp,
     onPlaybackRequest: (List<Song>, Int) -> Unit,
@@ -97,13 +97,14 @@ fun PlaylistDetailView(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Button(
                 onClick = { onPlaybackRequest(playlistSongs.toList().shuffled(), 0) },
                 enabled = playlistSongs.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = customRed,
+                    containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = Color.White,
                     disabledContainerColor = Color(0xFF333333)
                 ),
@@ -113,11 +114,35 @@ fun PlaylistDetailView(
                     .height(48.dp)
             ) {
                 Icon(Icons.Default.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Shuffle All",
+                    text = "Shuffle",
                     style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+
+            Button(
+                onClick = { onPlaybackRequest(playlistSongs.toList(), 0) },
+                enabled = playlistSongs.isNotEmpty(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White,
+                    disabledContainerColor = Color(0xFF333333)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .height(48.dp)
+            ) {
+                Icon(Icons.Default.PlayArrow, "Play", modifier = Modifier.size(22.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "Play All",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
                 )
             }
 

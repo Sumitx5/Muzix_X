@@ -58,7 +58,6 @@ fun LibraryScreen(
                 PlaylistDetailView(
                     currentPlaylist = currentPlaylist,
                     viewModel = viewModel,
-                    customRed = customRed,
                     customLightGrey = customLightGrey,
                     bottomPadding = dynamicallyCalculatedBottomPadding,
                     onPlaybackRequest = executeAutoRoutedPlayback,

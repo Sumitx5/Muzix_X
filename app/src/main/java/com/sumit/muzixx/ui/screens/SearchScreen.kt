@@ -1,9 +1,5 @@
 package com.sumit.muzixx.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -14,7 +10,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import coil.compose.AsyncImage
 import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.ui.components.PlaylistSelectorContent
 import com.sumit.muzixx.viewmodel.MusicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,8 +129,6 @@ fun SearchScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-
-            // ─── RESULTS CONTAINER ───
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 if (selectedTab == 0) {
                     when {
@@ -162,75 +156,24 @@ fun SearchScreen(
             }
         }
 
-        AnimatedVisibility(
-            visible = activeSongForPlaylist != null,
-            enter = slideInVertically(initialOffsetY = { it }),
-            exit = slideOutVertically(targetOffsetY = { it }),
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 96.dp)
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth().wrapContentHeight(),
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                tonalElevation = 8.dp
+        if (activeSongForPlaylist != null) {
+            ModalBottomSheet(
+                onDismissRequest = { activeSongForPlaylist = null },
+                containerColor = Color(0xFF0F0F0F),
+                dragHandle = { BottomSheetDefaults.DragHandle(color = Color.White.copy(alpha = 0.2f)) }
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Add to Playlist",
-                            color = Color.White,
-                            fontWeight = FontWeight.Bold
-                        )
-                        IconButton(onClick = { activeSongForPlaylist = null }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close Menu")
+                PlaylistSelectorContent(
+                    song = activeSongForPlaylist,
+                    playlists = userCreatedPlaylists,
+                    onPlaylistSelected = { playlist ->
+                        activeSongForPlaylist?.let { song ->
+                            viewModel.addSongToPlaylist(playlist.id, song)
                         }
-                    }
-
-                    Text(
-                        text = activeSongForPlaylist?.title ?: "",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-
-                    Divider(color = MaterialTheme.colorScheme.outlineVariant)
-
-                    if (userCreatedPlaylists.isEmpty()) {
-                        Text(
-                            text = "No custom playlists found. Go to Library to create one!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(vertical = 16.dp)
-                        )
-                    } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 240.dp)) {
-                            itemsIndexed(userCreatedPlaylists) { _, playlist ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            activeSongForPlaylist?.let { song ->
-                                                viewModel.addSongToPlaylist(playlist.id, song)
-                                            }
-                                            activeSongForPlaylist = null
-                                        }
-                                        .padding(vertical = 14.dp, horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween
-                                ) {
-                                    Text(playlist.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                                    Text("${playlist.songs.size} tracks", style = MaterialTheme.typography.bodyMedium, color = Color.White)
-                                }
-                            }
-                        }
-                    }
-                }
+                        activeSongForPlaylist = null
+                    },
+                    onCloseClick = { activeSongForPlaylist = null },
+                    modifier = Modifier.navigationBarsPadding()
+                )
             }
         }
     }
