@@ -70,6 +70,8 @@ fun AboutSongScreen(
                     InfoRow(label = "Title", value = song.title)
                     InfoRow(label = "Artist", value = song.artist.ifBlank { "Unknown Artist" })
                     InfoRow(label = "Track ID", value = song.id)
+                    InfoRow(label = "Folder", value = song.folderName)
+                    InfoRow(label = "Type", value = song.type)
                 }
 
                 InfoGroupCard(title = "Technical & Source Details") {
