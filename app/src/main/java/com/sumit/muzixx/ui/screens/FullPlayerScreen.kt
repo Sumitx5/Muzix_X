@@ -118,27 +118,7 @@ fun FullPlayerScreen(
         }
     }
 
-    val currentQueue = remember(
-        song,
-        viewModel.selectedPlaylist,
-        viewModel.saavnTrendingSongs,
-        viewModel.saavnNewReleases,
-        viewModel.saavnSearchResults,
-        viewModel.searchResults,
-        viewModel.saavnHindiHits,
-        viewModel.songs
-    ) {
-        val targetedPlaylistSongs = viewModel.selectedPlaylist?.songs
-        when {
-            targetedPlaylistSongs != null && targetedPlaylistSongs.any { it.id == song?.id } -> targetedPlaylistSongs
-            viewModel.saavnTrendingSongs.any { it.id == song?.id } -> viewModel.saavnTrendingSongs
-            viewModel.saavnNewReleases.any { it.id == song?.id } -> viewModel.saavnNewReleases
-            viewModel.saavnSearchResults.any { it.id == song?.id } -> viewModel.saavnSearchResults
-            viewModel.saavnHindiHits.any { it.id == song?.id } -> viewModel.saavnHindiHits
-            viewModel.searchResults.any { it.id == song?.id } -> viewModel.searchResults
-            else -> viewModel.songs
-        }
-    }
+    val currentQueue = viewModel.currentPlaybackQueue
 
     var isDraggingSlider by remember { mutableStateOf(false) }
     var localSliderPosition by remember { mutableFloatStateOf(0f) }
