@@ -15,6 +15,32 @@ class YouTubeAudioExtractor {
         private const val TAG = "YTExtractor"
     }
     private val searchBridge = YouTubeMusicScraper()
+    private fun isNonMusicContent(title: String, channel: String): Boolean {
+        val lowerTitle = title.lowercase()
+        val lowerChannel = channel.lowercase()
+
+        val isMusicMix = lowerTitle.contains("mix") ||
+                lowerTitle.contains("lofi") ||
+                lowerTitle.contains("remix") ||
+                lowerTitle.contains("playlist") ||
+                lowerTitle.contains("bgm")
+
+        if (isMusicMix) return false
+
+        val nonMusicKeywords = listOf(
+            "podcast", "full episode", "gameplay", "walkthrough", "review",
+            "unboxing", "vlog", "tutorial", "news", "reaction", "interview"
+        )
+        val nonMusicChannels = listOf(
+            "gaming", "news", "podcast", "vlogs", "tv", "series", "drama", "tech"
+        )
+
+        val hasBadKeyword = nonMusicKeywords.any { lowerTitle.contains(it) }
+        val hasBadChannel = nonMusicChannels.any { lowerChannel.contains(it) }
+
+        return hasBadKeyword || hasBadChannel
+    }
+
     private fun checkThumbnailUrl(videoId: String): String {
         return try {
             val maxResUrl = "https://img.youtube.com/vi/$videoId/maxresdefault.jpg"
@@ -56,6 +82,10 @@ class YouTubeAudioExtractor {
 
             val url = "https://www.youtube.com/watch?v=$finalVideoId"
             val info = StreamInfo.getInfo(ServiceList.YouTube, url)
+            if (isNonMusicContent(info.name ?: "", info.uploaderName ?: "")) {
+                Log.w(TAG, "Blocked loading main search result as it looks like non-music video media.")
+                return@withContext null
+            }
 
             var targetStreamUrl = info.audioStreams
                 ?.filter { !it.url.isNullOrBlank() }
@@ -114,7 +144,20 @@ class YouTubeAudioExtractor {
 
             return@withContext relatedItems
                 .filter { item ->
-                    item.url != null
+                    item.url != null && item is org.schabi.newpipe.extractor.stream.StreamInfoItem
+                }
+                .map { item -> item as org.schabi.newpipe.extractor.stream.StreamInfoItem }
+                .filter { streamItem ->
+                    val itemTitle = streamItem.name ?: ""
+                    val itemChannel = streamItem.uploaderName ?: ""
+
+                    val isTrashContent = isNonMusicContent(itemTitle, itemChannel)
+
+                    if (isTrashContent) {
+                        Log.d(TAG, "Filtered out non-music media recommendation: $itemTitle")
+                    }
+
+                    !isTrashContent
                 }
                 .map { item ->
                     val extractedId = item.url?.substringAfter("v=")?.substringBefore("&") ?: ""
@@ -130,17 +173,7 @@ class YouTubeAudioExtractor {
                         ""
                     }
 
-                    val resolvedArtist = when (item) {
-                        is org.schabi.newpipe.extractor.stream.StreamInfoItem -> item.uploaderName ?: item.uploaderUrl?.substringAfterLast("/") ?: "Unknown Artist"
-                        else -> {
-                            try {
-                                val method = item::class.java.getMethod("getUploaderName")
-                                method.invoke(item) as? String
-                            } catch (_: Exception) {
-                                null
-                            } ?: "Unknown Artist"
-                        }
-                    }
+                    val resolvedArtist = item.uploaderName ?: "Unknown Artist"
 
                     Song(
                         id = finalId,
@@ -148,7 +181,7 @@ class YouTubeAudioExtractor {
                         artist = resolvedArtist,
                         uri = "",
                         artUri = artworkUrl,
-                        duration = 0L,
+                        duration = item.duration * 1000L,
                         isStreaming = true,
                         folderName = "YouTube Recommendation",
                         type = "yt"
