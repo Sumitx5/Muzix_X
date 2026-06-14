@@ -6,14 +6,35 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.stream.StreamInfo
+import java.net.HttpURLConnection
+import java.net.URL
 
 @Suppress("DEPRECATION")
 class YouTubeAudioExtractor {
     companion object {
         private const val TAG = "YTExtractor"
     }
-
     private val searchBridge = YouTubeMusicScraper()
+    private fun checkThumbnailUrl(videoId: String): String {
+        return try {
+            val maxResUrl = "https://img.youtube.com/vi/$videoId/maxresdefault.jpg"
+            val connection = URL(maxResUrl).openConnection() as HttpURLConnection
+            connection.requestMethod = "HEAD"
+            connection.connectTimeout = 1000
+            connection.readTimeout = 1000
+
+            val responseCode = connection.responseCode
+            connection.disconnect()
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                maxResUrl
+            } else {
+                "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
+            }
+        } catch (_: Exception) {
+            "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
+        }
+    }
 
     suspend fun getSongFromVideoId(videoIdOrQuery: String): Song? = withContext(Dispatchers.IO) {
         try {
@@ -54,8 +75,15 @@ class YouTubeAudioExtractor {
                 return@withContext null
             }
 
-            val artworkUrl = info.thumbnails?.firstOrNull()?.url
-                ?: "https://img.youtube.com/vi/$finalVideoId/hqdefault.jpg"
+            val artworkUrl = if (finalVideoId.isNotBlank()) {
+                if (info.thumbnails.isNotEmpty()) {
+                    checkThumbnailUrl(finalVideoId)
+                } else {
+                    "https://img.youtube.com/vi/$finalVideoId/hqdefault.jpg"
+                }
+            } else {
+                ""
+            }
 
             return@withContext Song(
                 id = "yt_$finalVideoId",
@@ -72,6 +100,63 @@ class YouTubeAudioExtractor {
         } catch (e: Exception) {
             Log.e(TAG, "Extractor process failed unexpectedly", e)
             null
+        }
+    }
+
+    suspend fun getRelatedSongsFromVideoId(videoId: String): List<Song> = withContext(Dispatchers.IO) {
+        try {
+            val sanitizedId = videoId.replace("yt_", "").trim()
+            val url = "https://www.youtube.com/watch?v=$sanitizedId"
+            val info = StreamInfo.getInfo(ServiceList.YouTube, url)
+            val relatedItems = info.relatedItems ?: return@withContext emptyList()
+
+            Log.d(TAG, "NewPipe Extractor pulled ${relatedItems.size} structural recommendations for video: $sanitizedId")
+
+            return@withContext relatedItems
+                .filter { item ->
+                    item.url != null
+                }
+                .map { item ->
+                    val extractedId = item.url?.substringAfter("v=")?.substringBefore("&") ?: ""
+                    val finalId = if (extractedId.isNotBlank()) "yt_$extractedId" else item.name ?: ""
+
+                    val artworkUrl = if (extractedId.isNotBlank()) {
+                        if (item.thumbnails.isNotEmpty()) {
+                            checkThumbnailUrl(extractedId)
+                        } else {
+                            "https://img.youtube.com/vi/$extractedId/hqdefault.jpg"
+                        }
+                    } else {
+                        ""
+                    }
+
+                    val resolvedArtist = when (item) {
+                        is org.schabi.newpipe.extractor.stream.StreamInfoItem -> item.uploaderName ?: item.uploaderUrl?.substringAfterLast("/") ?: "Unknown Artist"
+                        else -> {
+                            try {
+                                val method = item::class.java.getMethod("getUploaderName")
+                                method.invoke(item) as? String
+                            } catch (_: Exception) {
+                                null
+                            } ?: "Unknown Artist"
+                        }
+                    }
+
+                    Song(
+                        id = finalId,
+                        title = item.name ?: "Unknown Track",
+                        artist = resolvedArtist,
+                        uri = "",
+                        artUri = artworkUrl,
+                        duration = 0L,
+                        isStreaming = true,
+                        folderName = "YouTube Recommendation",
+                        type = "yt"
+                    )
+                }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to pull related tracks via NewPipe Extractor channel", e)
+            emptyList()
         }
     }
 }
