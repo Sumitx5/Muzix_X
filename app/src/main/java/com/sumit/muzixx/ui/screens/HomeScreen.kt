@@ -13,10 +13,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,7 +41,6 @@ fun HomeScreen(
     viewModel: MusicViewModel,
     context: Context,
     onProfileClick: () -> Unit,
-    onMiniPlayerClick: () -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -109,7 +108,7 @@ fun HomeScreen(
                 ) {
                     IconButton(onClick = { scope.launch { drawerState.open() } }) {
                         Icon(
-                            imageVector = Icons.Default.AccountCircle,
+                            imageVector = Icons.Rounded.AccountCircle,
                             contentDescription = "Open Navigation Menu",
                             tint = Color.White
                         )
@@ -263,7 +262,7 @@ fun HomeScreen(
                     ) {
                         IconButton(onClick = { viewModel.closeCloudPlaylistDetails() }) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Back",
                                 tint = Color.White
                             )
@@ -298,7 +297,7 @@ fun HomeScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) {
-                            Icon(Icons.Default.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
+                            Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Shuffle", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                         }
@@ -314,7 +313,7 @@ fun HomeScreen(
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
                         ) {
-                            Icon(Icons.Default.PlayArrow, "Play All", modifier = Modifier.size(22.dp))
+                            Icon(Icons.Rounded.PlayArrow, "Play All", modifier = Modifier.size(22.dp))
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("Play All", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                         }

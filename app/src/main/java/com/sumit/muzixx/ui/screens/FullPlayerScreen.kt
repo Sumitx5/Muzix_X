@@ -16,14 +16,18 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.RepeatOne
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.SkipPrevious
+import androidx.compose.material.icons.rounded.Lyrics
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -251,7 +255,7 @@ fun FullPlayerScreen(
                                 )
                         ) {
                             Icon(
-                                imageVector = Icons.Default.Info,
+                                imageVector = Icons.Rounded.Info,
                                 contentDescription = "Song Information Options Menu",
                                 tint = Color.White
                             )
@@ -268,7 +272,8 @@ fun FullPlayerScreen(
                                 onClick = {
                                     showOptionsMenu = false
                                     navigateToAboutSong = true
-                                }
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null)}
                             )
 
                             DropdownMenuItem(
@@ -276,7 +281,17 @@ fun FullPlayerScreen(
                                 onClick = {
                                     showOptionsMenu = false
                                     Toast.makeText(context, "Lyrics are Unavailable", Toast.LENGTH_SHORT).show()
-                                }
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Lyrics, contentDescription = null)}
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Equalizer", fontWeight = FontWeight.Medium) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    Toast.makeText(context, "This Feature is Not Available", Toast.LENGTH_SHORT).show()
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Equalizer, contentDescription = null)}
                             )
 
                             DropdownMenuItem(
@@ -286,7 +301,8 @@ fun FullPlayerScreen(
                                     if (song != null) {
                                         showPlaylistDialog = true
                                     }
-                                }
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.LibraryAdd, contentDescription = null)}
                             )
 
                             DropdownMenuItem(
@@ -300,7 +316,8 @@ fun FullPlayerScreen(
                                     } else if (song == null) {
                                         Toast.makeText(context, "No active track loaded to download", Toast.LENGTH_SHORT).show()
                                     }
-                                }
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null)}
                             )
                         }
                     }
@@ -375,7 +392,7 @@ fun FullPlayerScreen(
                     modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SkipPrevious,
+                        imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Previous Track",
                         tint = Color.White,
                         modifier = Modifier.size(38.dp)
@@ -393,7 +410,7 @@ fun FullPlayerScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = if (viewModel.isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        imageVector = if (viewModel.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = "Play Pause Toggle",
                         tint = Color.White,
                         modifier = Modifier.size(36.dp)
@@ -407,7 +424,7 @@ fun FullPlayerScreen(
                     modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.SkipNext,
+                        imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next Track",
                         tint = Color.White,
                         modifier = Modifier.size(38.dp)
@@ -430,7 +447,7 @@ fun FullPlayerScreen(
                     onClick = { viewModel.toggleRepeatMode() },
                     modifier = Modifier.size(48.dp)
                 ) {
-                    val icon = if (repeatMode == RepeatMode.ONE) Icons.Default.RepeatOne else Icons.Default.Repeat
+                    val icon = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat
                     val tint = when (repeatMode) {
                         RepeatMode.OFF -> Color.White.copy(alpha = 0.5f)
                         RepeatMode.ALL -> accentColor
@@ -447,7 +464,7 @@ fun FullPlayerScreen(
                 // Right: Queue Sheet Button
                 IconButton(onClick = { showQueueSheet = true }) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.List,
+                        imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                         contentDescription = "Open Playback Queue Panel",
                         tint = customLightGrey,
                         modifier = Modifier.size(26.dp)

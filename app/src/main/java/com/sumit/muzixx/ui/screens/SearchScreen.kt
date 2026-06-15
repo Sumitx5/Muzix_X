@@ -3,19 +3,22 @@ package com.sumit.muzixx.ui.screens
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.rounded.History
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
@@ -37,6 +40,7 @@ fun SearchScreen(
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedTab by remember { mutableIntStateOf(0) }
+    var isSearchFocused by remember { mutableStateOf(false) }
 
     var activeSongForPlaylist by remember { mutableStateOf<Song?>(null) }
 
@@ -74,7 +78,10 @@ fun SearchScreen(
                 onValueChange = { searchQuery = it },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .onFocusChanged { focusState ->
+                        isSearchFocused = focusState.isFocused
+                    },
                 placeholder = { Text("Search songs, artists...") },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                 trailingIcon = {
@@ -133,26 +140,63 @@ fun SearchScreen(
                 if (selectedTab == 0) {
                     when {
                         viewModel.isSaavnLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        !hasSaavnData -> EmptyStatePlaceholder("Search your favorite tracks on JioSaavn")
+
+                        // 🚀 COVERS ACTIVE KEYBOARD POPUP OR EMPTY RESULTS
+                        isSearchFocused || !hasSaavnData -> {
+                            if (viewModel.searchHistory.isNotEmpty()) {
+                                SearchHistoryLayout(
+                                    // 🚀 ONLY TAKE THE TOP 5 ITEMS FOR CLEAN COMFORTABLE KEYBOARD VIEWING
+                                    history = viewModel.searchHistory.take(5),
+                                    onHistoryClick = { clickedQuery ->
+                                        searchQuery = clickedQuery
+                                        viewModel.searchJioSaavn(clickedQuery)
+                                        // Clear focus so keyboard drops down on click
+                                        focusManager.clearFocus()
+                                    },
+                                    onDeleteClick = { clickedQuery ->
+                                        viewModel.deleteSearchQuery(clickedQuery)
+                                    }
+                                )
+                            } else {
+                                EmptyStatePlaceholder("Search your favorite tracks on JioSaavn")
+                            }
+                        }
                         else -> SongResultsList(
                             songs = saavnResults,
                             bottomPadding = bottomPadding,
-                            onSongClick = { index ->
-                                viewModel.playSearchResultWithAutoplay(saavnResults, index)
-                            },
+                            viewModel = viewModel,
+                            onSongClick = { index -> viewModel.playSearchResultWithAutoplay(saavnResults, index) },
                             onAddClick = { song -> activeSongForPlaylist = song }
                         )
                     }
                 } else {
                     when {
                         viewModel.isSearchLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                        !hasYoutubeData -> EmptyStatePlaceholder("Search your favorite videos on YouTube")
+
+                        // 🚀 COVERS ACTIVE KEYBOARD POPUP OR EMPTY RESULTS FOR YOUTUBE
+                        isSearchFocused || !hasYoutubeData -> {
+                            if (viewModel.searchHistory.isNotEmpty()) {
+                                SearchHistoryLayout(
+                                    // 🚀 ONLY TAKE THE TOP 5 ITEMS HERE TOO
+                                    history = viewModel.searchHistory.take(5),
+                                    onHistoryClick = { clickedQuery ->
+                                        searchQuery = clickedQuery
+                                        viewModel.searchOnlineSongs(clickedQuery)
+                                        focusManager.clearFocus()
+                                    },
+                                    onDeleteClick = { clickedQuery ->
+                                        viewModel.deleteSearchQuery(clickedQuery)
+                                    }
+                                )
+                            } else {
+                                EmptyStatePlaceholder("Search your favorite videos on YouTube")
+                            }
+                        }
                         else -> SongResultsList(
                             songs = youtubeResults,
                             bottomPadding = bottomPadding,
-                            onSongClick = { index ->
-                                viewModel.playYouTubeSearchResultWithAutoplay(youtubeResults, index)
-                            },
+                            viewModel = viewModel,
+                            onSongClick = { index -> viewModel.playYouTubeSearchResultWithAutoplay(youtubeResults, index) },
                             onAddClick = { song -> activeSongForPlaylist = song }
                         )
                     }
@@ -187,6 +231,7 @@ fun SearchScreen(
 fun SongResultsList(
     songs: List<Song>,
     bottomPadding: androidx.compose.ui.unit.Dp,
+    viewModel: MusicViewModel,
     onSongClick: (Int) -> Unit,
     onAddClick: (Song) -> Unit
 ) {
@@ -195,6 +240,15 @@ fun SongResultsList(
         contentPadding = PaddingValues(bottom = bottomPadding)
     ) {
         itemsIndexed(songs, key = { index, song -> "${song.id}_$index" }) { index, song ->
+
+            LaunchedEffect(song.id) {
+                if (song.type == "yt") {
+                    val rawId = song.id.replace("yt_", "")
+                    android.util.Log.d("PreloadUI", "Triggering UI row preload for ID: $rawId")
+                    viewModel.preloadYouTubeStream(rawId)
+                }
+            }
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -231,7 +285,7 @@ fun SongResultsList(
 
                 IconButton(onClick = { onAddClick(song) }) {
                     Icon(
-                        imageVector = Icons.Default.Add,
+                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
                         contentDescription = "Add song",
                         tint = MaterialTheme.colorScheme.primary
                     )
@@ -254,5 +308,64 @@ fun EmptyStatePlaceholder(message: String) {
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             modifier = Modifier.padding(horizontal = 32.dp)
         )
+    }
+}
+
+@Composable
+fun SearchHistoryLayout(
+    history: List<String>,
+    onHistoryClick: (String) -> Unit,
+    onDeleteClick: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = "Recent Searches",
+            style = MaterialTheme.typography.titleMedium,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 8.dp)
+        )
+
+        LazyColumn {
+            items(history) { query ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onHistoryClick(query) }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.History,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = query,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = Color.White.copy(alpha = 0.9f),
+                        modifier = Modifier.weight(1f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    IconButton(
+                        onClick = { onDeleteClick(query) },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "Delete history item",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+            }
+        }
     }
 }

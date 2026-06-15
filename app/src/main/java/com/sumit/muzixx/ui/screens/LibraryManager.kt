@@ -10,13 +10,17 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.FeaturedPlayList
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.DriveFileRenameOutline
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.FolderDelete
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.PlaylistRemove
+import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -76,7 +80,7 @@ fun PlaylistDetailView(
         ) {
             IconButton(onClick = { viewModel.selectedPlaylist = null }) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
                     tint = Color.White
                 )
@@ -113,7 +117,7 @@ fun PlaylistDetailView(
                     .weight(1f)
                     .height(48.dp)
             ) {
-                Icon(Icons.Default.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
+                Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "Shuffle",
@@ -136,7 +140,7 @@ fun PlaylistDetailView(
                     .weight(1f)
                     .height(48.dp)
             ) {
-                Icon(Icons.Default.PlayArrow, "Play", modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.PlayArrow, "Play", modifier = Modifier.size(22.dp))
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     text = "Play All",
@@ -157,7 +161,7 @@ fun PlaylistDetailView(
                     modifier = Modifier.size(48.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Icon(Icons.Default.Edit, "Rename", modifier = Modifier.size(20.dp), tint = Color.White)
+                    Icon(Icons.Rounded.Edit, "Rename", modifier = Modifier.size(20.dp), tint = Color.White)
                 }
             }
         }
@@ -247,7 +251,7 @@ fun LibrarySongItem(
         Box {
             IconButton(onClick = { showSongMenu = true }) {
                 Icon(
-                    imageVector = Icons.Default.MoreVert,
+                    imageVector = Icons.Rounded.MoreVert,
                     contentDescription = "Options Menu",
                     tint = Color(0xFFB3B3B3)
                 )
@@ -263,7 +267,8 @@ fun LibrarySongItem(
                     onClick = {
                         showSongMenu = false
                         onActionClick()
-                    }
+                    },
+                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null)}
                 )
 
                 if (!isSystemPlaylist) {
@@ -272,7 +277,8 @@ fun LibrarySongItem(
                         onClick = {
                             showSongMenu = false
                             onRemoveClick()
-                        }
+                        },
+                        leadingIcon = { Icon(Icons.Rounded.PlaylistRemove, contentDescription = null)}
                     )
                 }
             }
@@ -300,7 +306,7 @@ fun PlaylistRootListView(
         title = { Text("Library", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) },
         actions = {
             IconButton(onClick = onCreateClick) {
-                Icon(Icons.Default.Add, "Create Playlist", tint = Color.White)
+                Icon(Icons.Rounded.Add, "Create Playlist", tint = Color.White)
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
@@ -330,7 +336,7 @@ fun PlaylistRootListView(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Folder, null, tint = customRed, modifier = Modifier.size(28.dp))
+                        Icon(Icons.AutoMirrored.Rounded.FeaturedPlayList, null, tint = customRed, modifier = Modifier.size(28.dp))
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
@@ -345,13 +351,30 @@ fun PlaylistRootListView(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = customLightGrey
                             )
+                            DropdownMenu(
+                                expanded = playlistPendingActionsMenu?.id == playlist.id,
+                                onDismissRequest = onMenuDismiss,
+                                modifier = Modifier.background(Color(0xFF1E1E1E)).padding(start = 10.dp)
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Rename Playlist", color = Color.White) },
+                                    onClick = onRenameTrigger,
+                                    leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null)}
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Delete Playlist", color = MaterialTheme.colorScheme.error) },
+                                    onClick = { onDeleteTrigger(playlist.id) },
+                                    leadingIcon = { Icon(Icons.Rounded.FolderDelete, null)}
+                                )
+                            }
                         }
+
                     }
 
                     if (!isSystemPlaylist) {
                         IconButton(onClick = { onPlaylistLongClick(playlist) }) {
                             Icon(
-                                imageVector = Icons.Default.MoreVert,
+                                imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = null,
                                 tint = customLightGrey
                             )
@@ -359,20 +382,6 @@ fun PlaylistRootListView(
                     }
                 }
 
-                DropdownMenu(
-                    expanded = playlistPendingActionsMenu?.id == playlist.id,
-                    onDismissRequest = onMenuDismiss,
-                    modifier = Modifier.background(Color(0xFF1E1E1E))
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Rename Playlist", color = Color.White) },
-                        onClick = onRenameTrigger
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete Playlist", color = MaterialTheme.colorScheme.error) },
-                        onClick = { onDeleteTrigger(playlist.id) }
-                    )
-                }
             }
             HorizontalDivider(color = Color(0xFF111111), thickness = 0.5.dp)
         }

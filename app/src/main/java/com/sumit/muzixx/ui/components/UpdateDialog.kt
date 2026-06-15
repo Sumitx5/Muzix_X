@@ -25,8 +25,8 @@ fun UpdateDialog() {
                 Text(
                     text = when {
                         UpdateChecker.isUpdateChecking -> "Checking for updates..."
-                        isUpToDate -> "You're all set! ✨"
-                        else -> "Update Available! 🚀"
+                        isUpToDate -> "You Are Updated"
+                        else -> "Update Available!"
                     }
                 )
             },

@@ -6,8 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.rounded.Pause
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -41,19 +41,13 @@ fun MiniPlayer(
     if (song == null) return
 
     val customRed = MaterialTheme.colorScheme.primary
-
     val cardGradient = remember {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF1E1E1E),
-                Color(0xFF141414)
-            )
-        )
+        Brush.verticalGradient(colors = listOf(Color(0xFF1E1E1E), Color(0xFF141414)))
     }
 
     Surface(
         modifier = modifier
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 14.dp)
             .fillMaxWidth()
             .shadow(
                 elevation = 24.dp,
@@ -64,10 +58,7 @@ fun MiniPlayer(
             ),
         shape = RoundedCornerShape(20.dp),
         color = Color.Transparent,
-        border = BorderStroke(
-            width = 1.dp,
-            color = Color.White.copy(alpha = 0.08f)
-        ),
+        border = BorderStroke(width = 1.dp, color = Color.White.copy(alpha = 0.08f)),
         tonalElevation = 0.dp,
         shadowElevation = 0.dp
     ) {
@@ -128,7 +119,7 @@ fun MiniPlayer(
             ) {
                 IconButton(onClick = onPlayPause) {
                     Icon(
-                        imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = "Play Pause",
                         tint = Color.White,
                         modifier = Modifier.size(24.dp)

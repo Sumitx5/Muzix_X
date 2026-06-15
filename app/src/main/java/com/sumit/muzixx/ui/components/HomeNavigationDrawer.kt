@@ -1,18 +1,21 @@
 package com.sumit.muzixx.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -26,6 +29,7 @@ fun HomeNavigationDrawer(
     onSettingsClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -50,13 +54,19 @@ fun HomeNavigationDrawer(
 
                     DrawerItem(
                         text = "Check Updates",
-                        icon = Icons.Default.Info,
+                        icon = Icons.Rounded.Update,
                         onClick = onCheckUpdatesClick
                     )
 
                     DrawerItem(
+                        text = "Integrations",
+                        icon = Icons.Rounded.Api,
+                        onClick = { Toast.makeText(context,"Not Available!", Toast.LENGTH_SHORT).show() }
+                    )
+
+                    DrawerItem(
                         text = "Settings",
-                        icon = Icons.Default.Settings,
+                        icon = Icons.Rounded.Settings,
                         onClick = onSettingsClick
                     )
                 }
@@ -65,8 +75,6 @@ fun HomeNavigationDrawer(
         content = content
     )
 }
-
-// Internal Drawer Items
 
 @Composable
 private fun DrawerProfileItem(
@@ -82,7 +90,7 @@ private fun DrawerProfileItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.AccountCircle,
+            imageVector = Icons.Rounded.AccountCircle,
             contentDescription = "User profile icon",
             modifier = Modifier.size(48.dp),
             tint = Color.White

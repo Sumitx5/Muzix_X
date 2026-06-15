@@ -166,41 +166,41 @@ class MainActivity : ComponentActivity() {
                                 .fillMaxSize()
                                 .padding(innerPadding)
                         ) {
-                            when (currentScreen) {
-                                "Home" -> HomeScreen(
-                                    viewModel = musicViewModel,
-                                    context = context,
-                                    onProfileClick = { currentScreen = "Profile" },
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                when (currentScreen) {
+                                    "Home" -> HomeScreen(
+                                        viewModel = musicViewModel,
+                                        context = context,
+                                        onProfileClick = { currentScreen = "Profile" },
+                                        onSettingsClick = { currentScreen = "Settings" }
+                                    )
+                                    "Search" -> SearchScreen(viewModel = musicViewModel)
+                                    "Library" -> LibraryScreen(viewModel = musicViewModel)
+                                    "Profile" -> ProfileScreen(
+                                        viewModel = musicViewModel,
+                                        onBackClick = { currentScreen = "Home" },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    "Settings" -> SettingsScreen(
+                                        viewModel = musicViewModel,
+                                        onBackClick = { currentScreen = "Home" }
+                                    )
+                                }
+                            }
+
+                            if (!isFullScreenView && selectedSong != null) {
+                                MiniPlayer(
+                                    song = selectedSong,
+                                    isPlaying = musicViewModel.isPlaying,
+                                    onPlayPause = { musicViewModel.togglePlayPause() },
                                     onMiniPlayerClick = { showFullPlayer = true },
-                                    onSettingsClick = { currentScreen = "Settings" }
-                                )
-                                "Search" -> SearchScreen(viewModel = musicViewModel)
-                                "Library" -> LibraryScreen(viewModel = musicViewModel)
-                                "Profile" -> ProfileScreen(
-                                    viewModel = musicViewModel,
-                                    onBackClick = { currentScreen = "Home" },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                                "Settings" -> SettingsScreen(
-                                    viewModel = musicViewModel,
-                                    onBackClick = { currentScreen = "Home" }
+                                    modifier = Modifier
+                                        .align(Alignment.BottomCenter)
+                                        .padding(bottom = 12.dp)
                                 )
                             }
                         }
                     }
-
-                    if (!isFullScreenView && selectedSong != null) {
-                        MiniPlayer(
-                            song = selectedSong,
-                            isPlaying = musicViewModel.isPlaying,
-                            onPlayPause = { musicViewModel.togglePlayPause() },
-                            onMiniPlayerClick = { showFullPlayer = true },
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .padding(bottom = 100.dp)
-                        )
-                    }
-
                     AnimatedVisibility(
                         visible = showFullPlayer,
                         enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
