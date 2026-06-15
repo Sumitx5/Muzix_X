@@ -112,6 +112,7 @@ class MusicViewModel : ViewModel() {
     val saavnPlaylistSearchResults = mutableStateListOf<com.sumit.muzixx.data.model.SaavnCloudPlaylistObject>()
     var currentCloudPlaylistName by mutableStateOf<String?>(null)
     val currentCloudPlaylistSongs = mutableStateListOf<Song>()
+    val searchHistory = mutableStateListOf<String>()
 
     // Loading States
     var isLocalSongsLoading by mutableStateOf(false)
@@ -159,6 +160,7 @@ class MusicViewModel : ViewModel() {
     fun initStorage(context: Context) {
         this.applicationContext = context.applicationContext
         sharedPreferences = context.getSharedPreferences("muzix_prefs", Context.MODE_PRIVATE)
+        loadSearchHistory()
         try {
             val json = sharedPreferences?.getString("custom_playlists", null)
             playlistController.loadPlaylistsFromJson(json)
@@ -263,6 +265,7 @@ class MusicViewModel : ViewModel() {
 
     fun searchJioSaavn(query: String) {
         if (query.isBlank()) return
+        saveSearchQuery(query)
         viewModelScope.launch {
             isSaavnLoading = true
             try {
@@ -287,6 +290,7 @@ class MusicViewModel : ViewModel() {
 
     fun searchOnlineSongs(query: String) {
         if (query.isBlank()) return
+        saveSearchQuery(query)
         viewModelScope.launch {
             isSearchLoading = true
             try {
@@ -491,6 +495,38 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    fun loadSearchHistory() {
+        sharedPreferences?.getStringSet("search_history_set", emptySet())?.let { savedSet ->
+            searchHistory.clear()
+            searchHistory.addAll(savedSet.toList().reversed())
+        }
+    }
+
+    fun saveSearchQuery(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) return
+
+        val currentList = searchHistory.toMutableList()
+        currentList.remove(trimmed)
+        currentList.add(0, trimmed)
+
+        val cappedList = if (currentList.size > 10) currentList.take(10) else currentList
+
+        searchHistory.clear()
+        searchHistory.addAll(cappedList)
+
+        sharedPreferences?.edit {
+            putStringSet("search_history_set", cappedList.toSet())
+        }
+    }
+
+    fun deleteSearchQuery(query: String) {
+        searchHistory.remove(query)
+        sharedPreferences?.edit {
+            putStringSet("search_history_set", searchHistory.toSet())
+        }
+    }
+
     private fun handleQueueLookaheadAutoplay() {
         val currentSong = selectedSong ?: return
         val currentIndex = activePlaylistIndex
@@ -561,6 +597,10 @@ class MusicViewModel : ViewModel() {
 
     fun triggerUpdateCheck(context: Context) {
         viewModelScope.launch { UpdateChecker.check(context, isManualCheck = true) }
+    }
+
+    fun preloadYouTubeStream(videoId: String) {
+        ytExtractor.preloadStream(videoId)
     }
 
     override fun onCleared() {
