@@ -9,6 +9,11 @@ import android.util.Log
 import android.widget.Toast
 import androidx.compose.runtime.*
 import androidx.core.net.toUri
+import android.database.ContentObserver
+import android.media.AudioManager
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import androidx.media3.common.*
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
@@ -54,6 +59,15 @@ class PlayerController(
     var currentRepeatMode by mutableStateOf(RepeatMode.OFF)
         private set
 
+    var currentVolume by mutableFloatStateOf(0.7f)
+        private set
+
+    private val audioManager by lazy {
+        contextRef?.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    }
+
+    private var volumeObserver: ContentObserver? = null
+
     fun initMediaController(context: Context) {
         this.contextRef = context.applicationContext
 
@@ -63,6 +77,7 @@ class PlayerController(
             val controller = controllerFuture.get()
             mediaController = controller
             controller.addListener(playerListener)
+            setupSystemVolumeBridge(context)
             Log.d(TAG, "MediaController successfully attached to PlaybackService.")
         }, MoreExecutors.directExecutor())
     }
@@ -337,19 +352,15 @@ class PlayerController(
         scope.launch(Dispatchers.Main) {
             try {
                 mediaController?.let { controller ->
-                    if (controller.isCommandAvailable(Player.COMMAND_SET_TRACK_SELECTION_PARAMETERS)) {
-                        //Pass
-                    }
-
                     val args = Bundle().apply { putBoolean("enabled", enabled) }
                     controller.sendCustomCommand(
                         SessionCommand("ACTION_SET_SKIP_SILENCE", Bundle.EMPTY),
                         args
                     )
-                    Log.d("PlayerController", "Dispatched live Skip Silence event down to service channel: $enabled")
+                    Log.d(TAG, "Dispatched live Skip Silence event down to service channel: $enabled")
                 }
             } catch (e: Exception) {
-                Log.e("PlayerController", "Failed setting live hardware Skip Silence filter modification", e)
+                Log.e(TAG, "Failed setting live hardware Skip Silence filter modification", e)
             }
         }
     }
@@ -363,11 +374,118 @@ class PlayerController(
                         SessionCommand("ACTION_SET_NORMALIZATION", Bundle.EMPTY),
                         args
                     )
-                    Log.d("PlayerController", "Dispatched live Normalization event down to service channel: $enabled")
+                    Log.d(TAG, "Dispatched live Normalization event down to service channel: $enabled")
                 }
             } catch (e: Exception) {
-                Log.e("PlayerController", "Failed setting live audio Normalization equalizer filter state", e)
+                Log.e(TAG, "Failed setting live audio Normalization equalizer filter state", e)
             }
+        }
+    }
+    fun setEqualizerEnabled(enabled: Boolean) {
+        scope.launch(Dispatchers.Main) {
+            mediaController?.let { controller ->
+                val args = Bundle().apply { putBoolean("enabled", enabled) }
+                controller.sendCustomCommand(
+                    SessionCommand("ACTION_SET_EQ_ENABLED", Bundle.EMPTY),
+                    args
+                )
+                Log.d(TAG, "Dispatched Equalizer Toggle State: $enabled")
+            }
+        }
+    }
+
+    fun setBandLevel(bandIndex: Int, dbValue: Float) {
+        scope.launch(Dispatchers.Main) {
+            mediaController?.let { controller ->
+                val args = Bundle().apply {
+                    putInt("band_index", bandIndex)
+                    putFloat("db_value", dbValue)
+                }
+                controller.sendCustomCommand(
+                    SessionCommand("ACTION_SET_EQ_BAND", Bundle.EMPTY),
+                    args
+                )
+                Log.d(TAG, "Dispatched Band Level Alteration -> Index: $bandIndex, Value: $dbValue")
+            }
+        }
+    }
+
+    fun setBassBoostEnabled(enabled: Boolean) {
+        scope.launch(Dispatchers.Main) {
+            mediaController?.let { controller ->
+                val args = Bundle().apply { putBoolean("enabled", enabled) }
+                controller.sendCustomCommand(
+                    SessionCommand("ACTION_SET_BASS_ENABLED", Bundle.EMPTY),
+                    args
+                )
+                Log.d(TAG, "Dispatched Bass Boost Toggle State: $enabled")
+            }
+        }
+    }
+
+    fun setBassBoostStrength(strengthPercent: Float) {
+        scope.launch(Dispatchers.Main) {
+            mediaController?.let { controller ->
+                val args = Bundle().apply { putFloat("strength_percent", strengthPercent) }
+                controller.sendCustomCommand(
+                    SessionCommand("ACTION_SET_BASS_STRENGTH", Bundle.EMPTY),
+                    args
+                )
+                Log.d(TAG, "Dispatched Bass Boost Strength Setting: $strengthPercent")
+            }
+        }
+    }
+
+    fun setEqualizerPreset(presetIndex: Short) {
+        scope.launch(Dispatchers.Main) {
+            mediaController?.let { controller ->
+                val args = Bundle().apply { putShort("preset_index", presetIndex) }
+                controller.sendCustomCommand(
+                    SessionCommand("ACTION_SET_EQUALIZER_PRESET", Bundle.EMPTY),
+                    args
+                )
+                Log.d(TAG, "Sent equalizer preset change command: $presetIndex")
+            }
+        }
+    }
+
+    fun setupSystemVolumeBridge(context: Context) {
+        val max = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC).toFloat()
+        val current = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+        currentVolume = (current / max).coerceIn(0f, 1f)
+
+        volumeObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                super.onChange(selfChange)
+                val newCurrent = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC).toFloat()
+                currentVolume = (newCurrent / max).coerceIn(0f, 1f)
+                Log.d("VolumeBridge", "Physical hardware key update intercepted: $currentVolume")
+            }
+        }
+
+        context.contentResolver.registerContentObserver(
+            Settings.System.CONTENT_URI,
+            true,
+            volumeObserver!!
+        )
+    }
+
+    fun setMasterVolume(volumePercent: Float) {
+        currentVolume = volumePercent.coerceIn(0f, 1f)
+        val maxVolume = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+        val targetVolume = (volumePercent * maxVolume).toInt()
+
+        audioManager.setStreamVolume(
+            AudioManager.STREAM_MUSIC,
+            targetVolume,
+            0
+        )
+    }
+
+    fun releaseVolumeBridge(context: Context) {
+        volumeObserver?.let {
+            context.contentResolver.unregisterContentObserver(it)
+            volumeObserver = null
         }
     }
 
@@ -398,6 +516,7 @@ class PlayerController(
 
     fun release() {
         mediaController?.removeListener(playerListener)
+        contextRef?.let { releaseVolumeBridge(it) }
         mediaController = null
     }
 
@@ -422,6 +541,6 @@ class PlayerController(
                 }
             }
         }
-        Log.d("PLAYER_CONTROLLER", "Playback Repeat Mode updated to: $nextMode")
+        Log.d(TAG, "Playback Repeat Mode updated to: $nextMode")
     }
 }
