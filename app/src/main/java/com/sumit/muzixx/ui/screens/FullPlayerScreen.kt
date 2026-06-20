@@ -28,6 +28,7 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.LibraryAdd
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ import com.sumit.muzixx.R
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.data.network.AudioDownloader
 import com.sumit.muzixx.data.model.RepeatMode
+import com.sumit.muzixx.ui.components.EqualizerPage
 import com.sumit.muzixx.ui.components.PlaylistSelectorContent
 import com.sumit.muzixx.utils.formatTime
 import kotlinx.coroutines.Dispatchers
@@ -72,6 +74,7 @@ fun FullPlayerScreen(
     val song = viewModel.selectedSong
     val repeatMode = viewModel.currentRepeatMode
     val accentColor = MaterialTheme.colorScheme.primary
+    var showEqualizer by remember { mutableStateOf(false) }
 
     val defaultAccent = remember { Color(0xFF230305) }
     var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
@@ -289,7 +292,7 @@ fun FullPlayerScreen(
                                 text = { Text("Equalizer", fontWeight = FontWeight.Medium) },
                                 onClick = {
                                     showOptionsMenu = false
-                                    Toast.makeText(context, "This Feature is Not Available", Toast.LENGTH_SHORT).show()
+                                    showEqualizer = true
                                 },
                                 leadingIcon = { Icon(Icons.Rounded.Equalizer, contentDescription = null)}
                             )
@@ -318,6 +321,14 @@ fun FullPlayerScreen(
                                     }
                                 },
                                 leadingIcon = { Icon(Icons.Rounded.Download, contentDescription = null)}
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Share", fontWeight = FontWeight.Medium) },
+                                onClick = {
+                                    showOptionsMenu = false
+                                },
+                                leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = null)}
                             )
                         }
                     }
@@ -471,6 +482,13 @@ fun FullPlayerScreen(
                     )
                 }
             }
+        }
+        //Eqz Page
+        if (showEqualizer) {
+            EqualizerPage(
+                viewModel = viewModel,
+                onDismiss = { showEqualizer = false }
+            )
         }
         //About Song
         if (navigateToAboutSong) {
