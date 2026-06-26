@@ -182,6 +182,31 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    fun overwriteStatsFromCloud(
+        totalHeard: Int, monthlyHeard: Int, yearlyHeard: Int,
+        totalSec: Long, monthlySec: Long, yearlySec: Long
+    ) {
+        if (totalHeard == 0 && monthlyHeard == 0 && totalSec == 0L) {
+            Log.d("MuzixX_Sync", "Skipping sync: Cloud data appears to still be loading zeros.")
+            return
+        }
+
+        val prefs = sharedPreferences ?: return
+        val isAlreadySynced = prefs.getBoolean("cloud_stats_synced_v1", false)
+
+        if (!isAlreadySynced && ::stats.isInitialized) {
+            stats.overwriteLocalStatsWithCloud(
+                totalHeard, monthlyHeard, yearlyHeard, totalSec, monthlySec, yearlySec
+            )
+            prefs.edit { putBoolean("cloud_stats_synced_v1", true) }
+            Log.d("MuzixX_Sync", "Initial cloud stats successfully pulled and locked.")
+        }
+    }
+
+    fun resetCloudSyncFlag() {
+        sharedPreferences?.edit { putBoolean("cloud_stats_synced_v1", false) }
+    }
+
     private fun saveLastPlayedSong(song: Song) {
         sharedPreferences?.edit {
             putString("last_song_id", song.id)
