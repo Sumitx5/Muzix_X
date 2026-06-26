@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import com.sumit.muzixx.data.ProfileStatsManager
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import kotlin.time.Duration.Companion.milliseconds
 
 class PlaybackStatsRepository(
     context: Context,
@@ -23,7 +24,6 @@ class PlaybackStatsRepository(
     private var playbackTrackerJob: Job? = null
 
     init {
-        //Collect telemetry details asynchronously across thread pools
         repositoryScope.launch(Dispatchers.IO) {
             launch { statsManager.totalSongsHeardFlow.collectLatest { totalSongsHeardState.intValue = it } }
             launch { statsManager.totalPlaySecondsFlow.collectLatest { totalPlaySecondsState.longValue = it } }
@@ -39,11 +39,30 @@ class PlaybackStatsRepository(
         playbackTrackerJob?.cancel()
         playbackTrackerJob = repositoryScope.launch(Dispatchers.IO) {
             while (isActive) {
-                delay(1000L)
+                delay(1000L.milliseconds)
                 if (isPlayingProvider()) {
                     statsManager.addPlayDuration(1L)
                 }
             }
+        }
+    }
+    fun overwriteLocalStatsWithCloud(
+        totalHeard: Int,
+        monthlyHeard: Int,
+        yearlyHeard: Int,
+        totalSec: Long,
+        monthlySec: Long,
+        yearlySec: Long
+    ) {
+        repositoryScope.launch(Dispatchers.IO) {
+            statsManager.updateAbsoluteStats(
+                totalHeard = totalHeard,
+                monthlyHeard = monthlyHeard,
+                yearlyHeard = yearlyHeard,
+                totalSec = totalSec,
+                monthlySec = monthlySec,
+                yearlySec = yearlySec
+            )
         }
     }
 
