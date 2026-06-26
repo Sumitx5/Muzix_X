@@ -1,6 +1,5 @@
 package com.sumit.muzixx.ui.components
 
-import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -15,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -27,9 +25,9 @@ fun HomeNavigationDrawer(
     onProfileClick: () -> Unit,
     onCheckUpdatesClick: () -> Unit,
     onSettingsClick: () -> Unit,
+    onIntegrationsClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
-    val context = LocalContext.current
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
@@ -61,7 +59,7 @@ fun HomeNavigationDrawer(
                     DrawerItem(
                         text = "Integrations",
                         icon = Icons.Rounded.Api,
-                        onClick = { Toast.makeText(context,"Not Available!", Toast.LENGTH_SHORT).show() }
+                        onClick = onIntegrationsClick
                     )
 
                     DrawerItem(
