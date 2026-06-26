@@ -15,15 +15,12 @@ class ProfileStatsManager(private val context: Context) {
     private fun getCurrentMonthKey(): String = LocalDate.now().let { "${it.year}_${it.month}" }
     private fun getCurrentYearKey(): String = LocalDate.now().year.toString()
 
-    //READ STATS DATA FLOWS
-
     val totalSongsHeardFlow: Flow<Int> = context.dataStore.data.map { pref ->
         pref[intPreferencesKey("total_songs_heard")] ?: 0
     }
     val totalPlaySecondsFlow: Flow<Long> = context.dataStore.data.map { pref ->
         pref[longPreferencesKey("total_play_seconds")] ?: 0L
     }
-
 
     val monthlySongsHeardFlow: Flow<Int> = context.dataStore.data.map { pref ->
         pref[intPreferencesKey("songs_heard_${getCurrentMonthKey()}")] ?: 0
@@ -38,7 +35,6 @@ class ProfileStatsManager(private val context: Context) {
     val yearlyPlaySecondsFlow: Flow<Long> = context.dataStore.data.map { pref ->
         pref[longPreferencesKey("play_seconds_${getCurrentYearKey()}")] ?: 0L
     }
-
 
     suspend fun incrementSongsHeard() {
         val monthKey = intPreferencesKey("songs_heard_${getCurrentMonthKey()}")
@@ -61,6 +57,33 @@ class ProfileStatsManager(private val context: Context) {
             pref[totalKey] = (pref[totalKey] ?: 0L) + seconds
             pref[monthKey] = (pref[monthKey] ?: 0L) + seconds
             pref[yearKey] = (pref[yearKey] ?: 0L) + seconds
+        }
+    }
+
+    suspend fun updateAbsoluteStats(
+        totalHeard: Int,
+        monthlyHeard: Int,
+        yearlyHeard: Int,
+        totalSec: Long,
+        monthlySec: Long,
+        yearlySec: Long
+    ) {
+        val totalSongsKey = intPreferencesKey("total_songs_heard")
+        val monthSongsKey = intPreferencesKey("songs_heard_${getCurrentMonthKey()}")
+        val yearSongsKey = intPreferencesKey("songs_heard_${getCurrentYearKey()}")
+
+        val totalSecondsKey = longPreferencesKey("total_play_seconds")
+        val monthSecondsKey = longPreferencesKey("play_seconds_${getCurrentMonthKey()}")
+        val yearSecondsKey = longPreferencesKey("play_seconds_${getCurrentYearKey()}")
+
+        context.dataStore.edit { preferences ->
+            preferences[totalSongsKey] = totalHeard
+            preferences[monthSongsKey] = monthlyHeard
+            preferences[yearSongsKey] = yearlyHeard
+
+            preferences[totalSecondsKey] = totalSec
+            preferences[monthSecondsKey] = monthlySec
+            preferences[yearSecondsKey] = yearlySec
         }
     }
 }
