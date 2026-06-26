@@ -32,6 +32,7 @@ import coil.compose.AsyncImage
 import com.sumit.muzixx.R
 import com.sumit.muzixx.data.Song
 import com.sumit.muzixx.ui.components.HomeNavigationDrawer
+import com.sumit.muzixx.viewmodel.AuthViewModel
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 
@@ -39,6 +40,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     viewModel: MusicViewModel,
+    authViewModel: AuthViewModel,
     context: Context,
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
@@ -49,10 +51,14 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val accentColor = MaterialTheme.colorScheme.primary
 
-    val currentUserName = if (viewModel.isSettingsInitialized()) {
-        viewModel.settings.userName
-    } else {
-        "User"
+    val currentUserName = when {
+        authViewModel.currentUser?.displayName?.isNotBlank() == true -> {
+            authViewModel.currentUser?.displayName ?: "User"
+        }
+        viewModel.isSettingsInitialized() -> {
+            viewModel.settings.userName
+        }
+        else -> "User"
     }
 
     val trending = viewModel.saavnTrendingSongs
