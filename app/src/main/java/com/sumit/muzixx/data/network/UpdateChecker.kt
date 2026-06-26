@@ -47,7 +47,7 @@ object UpdateChecker {
     }
 
     suspend fun check(context: Context, isManualCheck: Boolean = false) {
-        val githubUser = "Sumit282698"
+        val githubUser = "Sumitx5"
         val repoName = "Muzix_X"
 
         val localVersionNumbers = try {
