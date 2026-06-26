@@ -63,7 +63,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-@Suppress("AssignedValueIsNeverRead")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FullPlayerScreen(
@@ -456,7 +455,7 @@ fun FullPlayerScreen(
                     Icon(
                         imageVector = if (viewModel.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = "Play Pause Toggle",
-                        tint = Color.White,
+                        tint = if (viewModel.isPlaying) Color(0xFF2A2A2A) else accentColor,
                         modifier = Modifier.size(36.dp)
                     )
                 }

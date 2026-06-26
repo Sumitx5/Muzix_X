@@ -121,7 +121,7 @@ fun MiniPlayer(
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = "Play Pause",
-                        tint = Color.White,
+                        tint = if (isPlaying) Color(0xFF2A2A2A) else customRed,
                         modifier = Modifier.size(24.dp)
                     )
                 }
