@@ -141,16 +141,13 @@ fun SearchScreen(
                     when {
                         viewModel.isSaavnLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
 
-                        // 🚀 COVERS ACTIVE KEYBOARD POPUP OR EMPTY RESULTS
                         isSearchFocused || !hasSaavnData -> {
                             if (viewModel.searchHistory.isNotEmpty()) {
                                 SearchHistoryLayout(
-                                    // 🚀 ONLY TAKE THE TOP 5 ITEMS FOR CLEAN COMFORTABLE KEYBOARD VIEWING
                                     history = viewModel.searchHistory.take(5),
                                     onHistoryClick = { clickedQuery ->
                                         searchQuery = clickedQuery
                                         viewModel.searchJioSaavn(clickedQuery)
-                                        // Clear focus so keyboard drops down on click
                                         focusManager.clearFocus()
                                     },
                                     onDeleteClick = { clickedQuery ->
@@ -165,7 +162,7 @@ fun SearchScreen(
                             songs = saavnResults,
                             bottomPadding = bottomPadding,
                             viewModel = viewModel,
-                            onSongClick = { index -> viewModel.playSearchResultWithAutoplay(saavnResults, index) },
+                            onSongClick = { index -> viewModel.playSaavnSongWithYouTubeAutoplay(saavnResults, index) },
                             onAddClick = { song -> activeSongForPlaylist = song }
                         )
                     }
@@ -173,11 +170,9 @@ fun SearchScreen(
                     when {
                         viewModel.isSearchLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
 
-                        // 🚀 COVERS ACTIVE KEYBOARD POPUP OR EMPTY RESULTS FOR YOUTUBE
                         isSearchFocused || !hasYoutubeData -> {
                             if (viewModel.searchHistory.isNotEmpty()) {
                                 SearchHistoryLayout(
-                                    // 🚀 ONLY TAKE THE TOP 5 ITEMS HERE TOO
                                     history = viewModel.searchHistory.take(5),
                                     onHistoryClick = { clickedQuery ->
                                         searchQuery = clickedQuery
