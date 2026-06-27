@@ -1,5 +1,8 @@
+@file:Suppress("DEPRECATION")
+
 package com.sumit.muzixx.ui.screens
 
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +26,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
+import androidx.core.net.toUri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,11 +51,13 @@ fun SettingsScreen(
     val currentAudioQuality = viewModel.settings.audioQuality
     var showQualityDialog by remember { mutableStateOf(false) }
 
+    val profileUrl = "https://github.com/Sumitx5"
+
     val appVersion = remember {
         try {
             val pInfo = context.packageManager.getPackageInfo(context.packageName, 0)
             pInfo.versionName ?: "1.0.0"
-        } catch (e: PackageManager.NameNotFoundException) {
+        } catch (_: PackageManager.NameNotFoundException) {
             "1.0.0"
         }
     }
@@ -242,7 +248,18 @@ fun SettingsScreen(
 
                         AboutRowItem(label = "Version", value = "v$appVersion", valueColor = accentColor)
                         AboutRowItem(label = "Build Variant", value = "Release Stable", valueColor = customLightGrey)
-                        AboutRowItem(label = "Developer Architecture", value = "Sumit Singh", valueColor = Color.White)
+                        Box(
+                            modifier = Modifier.clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, profileUrl.toUri())
+                                context.startActivity(intent)
+                            }
+                        ) {
+                            AboutRowItem(
+                                label = "Developer Architecture",
+                                value = "Sumit Singh",
+                                valueColor = Color.White
+                            )
+                        }
                         AboutRowItem(label = "Framework", value = "Jetpack Compose (Android)", valueColor = customLightGrey)
 
                         Spacer(modifier = Modifier.height(8.dp))
