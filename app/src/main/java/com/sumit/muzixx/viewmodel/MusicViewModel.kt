@@ -62,14 +62,15 @@ class MusicViewModel : ViewModel() {
                 mediaStateHolder.startTracking(mediaControllerProvider = { activeController })
             },
             onPlaybackStopped = {
+                saveCurrentPlaybackPosition()
                 if (::stats.isInitialized) stats.stopPlaybackTimer()
                 mediaStateHolder.stopTracking()
             },
 
             onTrackSwitched = { switchedSong ->
+                sharedPreferences?.edit { putLong("last_song_playback_position", 0L) }
                 if (::stats.isInitialized) stats.incrementSongsHeardCount()
                 saveLastPlayedSong(switchedSong)
-
                 handleQueueLookaheadAutoplay()
             },
             onQueueUpdated = { updatedList ->
@@ -153,15 +154,16 @@ class MusicViewModel : ViewModel() {
         stats = PlaybackStatsRepository(context.applicationContext, viewModelScope)
     }
 
-    fun initMediaController(context: Context) {
+    fun initMediaController(context: Context, onControllerReady: () -> Unit = {}) {
         this.applicationContext = context.applicationContext
-        playerController.initMediaController(context)
+        playerController.initMediaController(context, onControllerReady)
     }
 
     fun initStorage(context: Context) {
         this.applicationContext = context.applicationContext
         sharedPreferences = context.getSharedPreferences("muzix_prefs", Context.MODE_PRIVATE)
         loadSearchHistory()
+
         try {
             val json = sharedPreferences?.getString("custom_playlists", null)
             playlistController.loadPlaylistsFromJson(json)
@@ -175,11 +177,25 @@ class MusicViewModel : ViewModel() {
             if (lastSong != null && lastSong.id.isNotBlank()) {
                 playerController.selectedSong = lastSong
                 playerController.submitQueueToPlayer(listOf(lastSong), 0, playWhenReady = false)
+                playerController.preparePlayerEngine()
+
+                val savedProgress = sharedPreferences?.getLong("last_song_playback_position", 0L) ?: 0L
+                if (savedProgress > 0L) {
+                    seekTo(savedProgress)
+                }
             } else {
                 currentPlaybackQueue = emptyList()
                 Log.d("INIT_STORAGE", "First time launch or clear cache sequence triggered.")
             }
         }
+    }
+
+    fun saveCurrentPlaybackPosition() {
+        val currentPos = currentPosition
+        sharedPreferences?.edit {
+            putLong("last_song_playback_position", currentPos)
+        }
+        Log.d("MuzixX_Storage", "Saved recovery playback state marker at: $currentPos ms")
     }
 
     fun overwriteStatsFromCloud(

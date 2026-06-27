@@ -68,7 +68,7 @@ class PlayerController(
 
     private var volumeObserver: ContentObserver? = null
 
-    fun initMediaController(context: Context) {
+    fun initMediaController(context: Context, onControllerReady: () -> Unit = {}) {
         this.contextRef = context.applicationContext
 
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
@@ -79,6 +79,7 @@ class PlayerController(
             controller.addListener(playerListener)
             setupSystemVolumeBridge(context)
             Log.d(TAG, "MediaController successfully attached to PlaybackService.")
+            onControllerReady()
         }, MoreExecutors.directExecutor())
     }
 
@@ -542,5 +543,8 @@ class PlayerController(
             }
         }
         Log.d(TAG, "Playback Repeat Mode updated to: $nextMode")
+    }
+    fun preparePlayerEngine() {
+        mediaController?.prepare()
     }
 }

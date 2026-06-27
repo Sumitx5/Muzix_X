@@ -11,8 +11,6 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -28,8 +26,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import java.util.concurrent.TimeUnit
 
 class PlaybackService : MediaSessionService() {
 
@@ -195,25 +191,13 @@ class PlaybackService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
         createChannel()
-
-        val okHttpClient = OkHttpClient.Builder()
-            .connectTimeout(20, TimeUnit.SECONDS)
-            .readTimeout(20, TimeUnit.SECONDS)
-            .addInterceptor { chain ->
-                val request = chain.request().newBuilder()
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .build()
-                chain.proceed(request)
-            }
-            .build()
-
-        val dataSourceFactory = DefaultDataSource.Factory(this, OkHttpDataSource.Factory(okHttpClient))
+        val cachingDataSourceFactory = com.sumit.muzixx.data.manager.MuzixCacheManager.createCacheDataSourceFactory(this)
+        val mediaSourceFactory = DefaultMediaSourceFactory(cachingDataSourceFactory)
         val audioAttributes = AudioAttributes.Builder()
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .setUsage(C.USAGE_MEDIA)
             .build()
 
-        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(5000, 15000, 1500, 3000)
             .setPrioritizeTimeOverSizeThresholds(true)

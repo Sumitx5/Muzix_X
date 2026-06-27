@@ -4,11 +4,14 @@ import android.content.Context
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import okhttp3.OkHttpClient
 import java.io.File
+import java.util.concurrent.TimeUnit
 
 @OptIn(UnstableApi::class)
 object MuzixCacheManager {
@@ -29,10 +32,15 @@ object MuzixCacheManager {
     }
 
     fun createCacheDataSourceFactory(context: Context): CacheDataSource.Factory {
-        val upstreamFactory = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
+        val baseHttpClient = OkHttpClient.Builder()
+            .connectTimeout(20, TimeUnit.SECONDS)
+            .readTimeout(20, TimeUnit.SECONDS)
+            .build()
+
+        val httpDataSourceFactory = OkHttpDataSource.Factory(baseHttpClient)
             .setUserAgent("MuzixX/1.0")
 
+        val upstreamFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         return CacheDataSource.Factory()
             .setCache(getCache(context))
             .setUpstreamDataSourceFactory(upstreamFactory)
