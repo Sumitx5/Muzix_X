@@ -15,7 +15,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -83,21 +82,21 @@ fun ProfileScreen(
         Scaffold(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color.Black),
-            containerColor = Color.Black,
+                .background(MaterialTheme.colorScheme.background),
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
-                    title = { Text(text = "Profile", color = Color.White, fontWeight = FontWeight.Bold) },
+                    title = { Text(text = "Profile", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Black)
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
                 )
             }
         ) { innerPadding ->
@@ -120,17 +119,13 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(76.dp)
                             .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(Color(0xFFE50914), Color(0xFFFF4D4D))
-                                )
-                            ),
+                            .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Profile Pic",
-                            tint = Color.White,
+                            tint = MaterialTheme.colorScheme.background,
                             modifier = Modifier.size(42.dp)
                         )
                     }
@@ -142,13 +137,13 @@ fun ProfileScreen(
                             text = if (currentUser != null) currentUser.displayName ?: currentUserName else currentUserName,
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (currentUser != null) "@Cloud Synced Account" else "MuzixX Listener",
+                            text = if (currentUser != null) "@Cloud Synced Account" else "Muzix X Listener",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFB3B3B3)
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -174,7 +169,7 @@ fun ProfileScreen(
                     selectedTabIndex = selectedTabState,
                     modifier = Modifier.fillMaxWidth(),
                     containerColor = Color.Transparent,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     indicator = {},
                     divider = {},
                     tabs = {
@@ -231,7 +226,7 @@ fun ProfileScreen(
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(22.dp),
-                    color = Color(0xFF111111)
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Column(
                         modifier = Modifier.padding(20.dp),
@@ -241,13 +236,13 @@ fun ProfileScreen(
                             text = "Your Music Journey",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
                             text = "Keep listening to build your listening stats and personalized music experience.\nNote: Restart app to See live Updates if you recently Connected the account",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color(0xFFB3B3B3),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -266,7 +261,7 @@ fun ProfileStatCard(
 ) {
     Surface(
         modifier = modifier,
-        color = Color(0xFF111111),
+        color = MaterialTheme.colorScheme.surfaceVariant,
         shape = RoundedCornerShape(22.dp)
     ) {
         Column(
@@ -278,7 +273,7 @@ fun ProfileStatCard(
             Text(
                 text = title,
                 style = MaterialTheme.typography.labelLarge,
-                color = Color(0xFFB3B3B3)
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.height(8.dp))
