@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.data.Playlist
 import com.sumit.muzixx.data.Song
@@ -29,10 +28,6 @@ fun LibraryScreen(
     var playlistPendingActionsMenu by remember { mutableStateOf<Playlist?>(null) }
 
     val currentPlaylist = viewModel.selectedPlaylist
-    val customRed = MaterialTheme.colorScheme.primary
-    val customGrey = remember { Color(0xFF121212) }
-    val customLightGrey = remember { Color(0xFFB3B3B3) }
-
     val isPlayerActive = viewModel.selectedSong != null
     val dynamicallyCalculatedBottomPadding = if (isPlayerActive) 92.dp else 24.dp
 
@@ -51,14 +46,13 @@ fun LibraryScreen(
     }
 
     if (viewModel.isLocalSongsLoading) {
-        LibraryLoadingOverlay(customRed = customRed)
+        LibraryLoadingOverlay()
     } else {
-        Column(modifier = modifier.fillMaxSize().background(Color.Black)) {
+        Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             if (currentPlaylist != null) {
                 PlaylistDetailView(
                     currentPlaylist = currentPlaylist,
                     viewModel = viewModel,
-                    customLightGrey = customLightGrey,
                     bottomPadding = dynamicallyCalculatedBottomPadding,
                     onPlaybackRequest = executeAutoRoutedPlayback,
                     onEditRequest = { id, name ->
@@ -75,8 +69,6 @@ fun LibraryScreen(
                 PlaylistRootListView(
                     playlists = viewModel.playlists,
                     playlistPendingActionsMenu = playlistPendingActionsMenu,
-                    customRed = customRed,
-                    customLightGrey = customLightGrey,
                     bottomPadding = dynamicallyCalculatedBottomPadding,
                     onCreateClick = { showDialog = true },
                     onPlaylistSelect = { viewModel.selectedPlaylist = it },
@@ -95,8 +87,6 @@ fun LibraryScreen(
     if (showPlaylistSelector && activeSongForMenu != null) {
         PlaylistSelectorDialog(
             playlists = viewModel.playlists,
-            customGrey = customGrey,
-            customLightGrey = customLightGrey,
             onDismiss = { showPlaylistSelector = false },
             onPlaylistChosen = { targetId ->
                 viewModel.addSongToPlaylist(targetId, activeSongForMenu!!)
@@ -108,8 +98,6 @@ fun LibraryScreen(
     if (showRenameDialog && playlistToEdit != null) {
         RenamePlaylistDialog(
             nameInput = renameInputText,
-            customGrey = customGrey,
-            customRed = customRed,
             onNameChange = { renameInputText = it },
             onDismiss = {
                 showRenameDialog = false
@@ -131,8 +119,6 @@ fun LibraryScreen(
     if (showDialog) {
         CreatePlaylistDialog(
             nameInput = newPlaylistName,
-            customGrey = customGrey,
-            customRed = customRed,
             onNameChange = { newPlaylistName = it },
             onDismiss = {
                 showDialog = false

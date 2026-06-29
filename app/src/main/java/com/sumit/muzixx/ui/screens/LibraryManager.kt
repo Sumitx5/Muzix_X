@@ -39,20 +39,20 @@ import com.sumit.muzixx.data.Song
 import com.sumit.muzixx.viewmodel.MusicViewModel
 
 @Composable
-fun LibraryLoadingOverlay(customRed: Color) {
+fun LibraryLoadingOverlay() {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(MaterialTheme.colorScheme.background),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator(color = customRed)
+            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             Spacer(modifier = Modifier.height(16.dp))
             Text(
                 text = "Scanning your library tracks...",
                 style = MaterialTheme.typography.bodyLarge,
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -62,7 +62,6 @@ fun LibraryLoadingOverlay(customRed: Color) {
 fun PlaylistDetailView(
     currentPlaylist: Playlist,
     viewModel: MusicViewModel,
-    customLightGrey: Color,
     bottomPadding: androidx.compose.ui.unit.Dp,
     onPlaybackRequest: (List<Song>, Int) -> Unit,
     onEditRequest: (String, String) -> Unit,
@@ -71,7 +70,7 @@ fun PlaylistDetailView(
     val playlistSongs = currentPlaylist.songs
     val isSystemPlaylist = currentPlaylist.id == "local_songs" || currentPlaylist.id.startsWith("folder_")
 
-    Column(modifier = Modifier.fillMaxWidth().background(Color.Black)) {
+    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -82,7 +81,7 @@ fun PlaylistDetailView(
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onBackground
                 )
             }
             Spacer(modifier = Modifier.width(8.dp))
@@ -93,7 +92,7 @@ fun PlaylistDetailView(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
-                color = Color.White
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
 
@@ -109,7 +108,7 @@ fun PlaylistDetailView(
                 enabled = playlistSongs.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     disabledContainerColor = Color(0xFF333333)
                 ),
                 shape = RoundedCornerShape(12.dp),
@@ -132,7 +131,7 @@ fun PlaylistDetailView(
                 enabled = playlistSongs.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                     disabledContainerColor = Color(0xFF333333)
                 ),
                 shape = RoundedCornerShape(12.dp),
@@ -155,13 +154,13 @@ fun PlaylistDetailView(
                     onClick = { onEditRequest(currentPlaylist.id, currentPlaylist.name) },
                     shape = RoundedCornerShape(12.dp),
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color(0xFF222222),
-                        contentColor = Color.White
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                     ),
                     modifier = Modifier.size(48.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Icon(Icons.Rounded.Edit, "Rename", modifier = Modifier.size(20.dp), tint = Color.White)
+                    Icon(Icons.Rounded.Edit, "Rename", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -170,7 +169,7 @@ fun PlaylistDetailView(
 
     if (playlistSongs.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("This playlist is empty.", style = MaterialTheme.typography.bodyLarge, color = customLightGrey)
+            Text("This playlist is empty.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else {
         LazyColumn(
@@ -204,7 +203,7 @@ fun LibrarySongItem(
     onRemoveClick: () -> Unit = {},
     onClick: () -> Unit
 ) {
-    val textColor = if (isSelected) MaterialTheme.colorScheme.primary else Color.White
+    val textColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     var showSongMenu by remember { mutableStateOf(false) }
     val isSystemPlaylist = currentPlaylistId == "local_songs" || currentPlaylistId.startsWith("folder_")
 
@@ -243,7 +242,7 @@ fun LibrarySongItem(
                 text = song.artist,
                 maxLines = 1,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFFB3B3B3),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 overflow = TextOverflow.Ellipsis
             )
         }
@@ -253,17 +252,17 @@ fun LibrarySongItem(
                 Icon(
                     imageVector = Icons.Rounded.MoreVert,
                     contentDescription = "Options Menu",
-                    tint = Color(0xFFB3B3B3)
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
 
             DropdownMenu(
                 expanded = showSongMenu,
                 onDismissRequest = { showSongMenu = false },
-                modifier = Modifier.background(Color(0xFF1E1E1E))
+                modifier = Modifier.background(MaterialTheme.colorScheme.background)
             ) {
                 DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = Color.White) },
+                    text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
                     onClick = {
                         showSongMenu = false
                         onActionClick()
@@ -292,8 +291,6 @@ fun LibrarySongItem(
 fun PlaylistRootListView(
     playlists: List<Playlist>,
     playlistPendingActionsMenu: Playlist?,
-    customRed: Color,
-    customLightGrey: Color,
     bottomPadding: androidx.compose.ui.unit.Dp,
     onCreateClick: () -> Unit,
     onPlaylistSelect: (Playlist) -> Unit,
@@ -306,13 +303,13 @@ fun PlaylistRootListView(
         title = { Text("Library", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) },
         actions = {
             IconButton(onClick = onCreateClick) {
-                Icon(Icons.Rounded.Add, "Create Playlist", tint = Color.White)
+                Icon(Icons.Rounded.Add, "Create Playlist", tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = Color.Black,
-            titleContentColor = Color.White,
-            actionIconContentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
     )
 
@@ -336,28 +333,28 @@ fun PlaylistRootListView(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Rounded.FeaturedPlayList, null, tint = customRed, modifier = Modifier.size(28.dp))
+                        Icon(Icons.AutoMirrored.Rounded.FeaturedPlayList, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                         Spacer(modifier = Modifier.width(16.dp))
                         Column {
                             Text(
                                 text = playlist.name,
                                 style = MaterialTheme.typography.titleLarge,
-                                color = Color.White,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "${playlist.songs.size} songs",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = customLightGrey
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             DropdownMenu(
                                 expanded = playlistPendingActionsMenu?.id == playlist.id,
                                 onDismissRequest = onMenuDismiss,
-                                modifier = Modifier.background(Color(0xFF1E1E1E)).padding(start = 10.dp)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.background).padding(start = 10.dp)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Rename Playlist", color = Color.White) },
+                                    text = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurface) },
                                     onClick = onRenameTrigger,
                                     leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null)}
                                 )
@@ -376,7 +373,7 @@ fun PlaylistRootListView(
                             Icon(
                                 imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = null,
-                                tint = customLightGrey
+                                tint = MaterialTheme.colorScheme.surfaceVariant
                             )
                         }
                     }
@@ -391,26 +388,24 @@ fun PlaylistRootListView(
 @Composable
 fun PlaylistSelectorDialog(
     playlists: List<Playlist>,
-    customGrey: Color,
-    customLightGrey: Color,
     onDismiss: () -> Unit,
     onPlaylistChosen: (String) -> Unit
 ) {
     val customPlaylistsOnly = playlists.filter { it.id != "local_songs" && !it.id.startsWith("folder_") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = customGrey,
-        title = { Text("Add to Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        title = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = {
             if (customPlaylistsOnly.isEmpty()) {
-                Text("Please create a custom playlist first using the '+' button.", color = customLightGrey)
+                Text("Please create a custom playlist first using the '+' button.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                     items(customPlaylistsOnly, key = { it.id }) { targetPlaylist ->
                         Text(
                             text = targetPlaylist.name,
                             style = MaterialTheme.typography.bodyLarge,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { onPlaylistChosen(targetPlaylist.id) }
@@ -423,7 +418,7 @@ fun PlaylistSelectorDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close", color = Color.Gray) }
+            TextButton(onClick = onDismiss) { Text("Close", color = MaterialTheme.colorScheme.surfaceVariant) }
         }
     )
 }
@@ -431,16 +426,14 @@ fun PlaylistSelectorDialog(
 @Composable
 fun RenamePlaylistDialog(
     nameInput: String,
-    customGrey: Color,
-    customRed: Color,
     onNameChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onSave: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = customGrey,
-        title = { Text("Rename Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        title = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = {
             OutlinedTextField(
                 value = nameInput,
@@ -449,16 +442,16 @@ fun RenamePlaylistDialog(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = customRed, focusedLabelColor = customRed,
-                    focusedTextColor = Color.White, unfocusedTextColor = Color.White
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    focusedTextColor = MaterialTheme.colorScheme.surfaceVariant, unfocusedTextColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         },
         confirmButton = {
-            TextButton(onClick = onSave) { Text("Save", color = customRed, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onSave) { Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Gray) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.surfaceVariant) }
         }
     )
 }
@@ -466,16 +459,14 @@ fun RenamePlaylistDialog(
 @Composable
 fun CreatePlaylistDialog(
     nameInput: String,
-    customGrey: Color,
-    customRed: Color,
     onNameChange: (String) -> Unit,
     onDismiss: () -> Unit,
     onCreate: () -> Unit
 ) {
     AlertDialog(
         onDismissRequest = { onDismiss() },
-        containerColor = customGrey,
-        title = { Text("New Playlist", color = Color.White, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.onSurface,
+        title = { Text("New Playlist", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) },
         text = {
             OutlinedTextField(
                 value = nameInput,
@@ -484,16 +475,16 @@ fun CreatePlaylistDialog(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = customRed, focusedLabelColor = customRed,
-                    focusedTextColor = Color.White, unfocusedTextColor = Color.White
+                    focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    focusedTextColor = MaterialTheme.colorScheme.onPrimary, unfocusedTextColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },
         confirmButton = {
-            TextButton(onClick = onCreate) { Text("Create", color = customRed, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onCreate) { Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = Color.Gray) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.surfaceVariant) }
         }
     )
 }
