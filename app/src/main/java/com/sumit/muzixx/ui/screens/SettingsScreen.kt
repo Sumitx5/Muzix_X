@@ -27,8 +27,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import androidx.core.net.toUri
-import com.sumit.muzixx.ui.theme.DarkGray
-import com.sumit.muzixx.ui.theme.LightGray
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,9 +36,6 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val customGrey = DarkGray
-    val customLightGrey = LightGray
-    val accentColor = MaterialTheme.colorScheme.primary
     val backGroundColor = MaterialTheme.colorScheme.background
 
     var showThemeDialog by remember { mutableStateOf(false) }
