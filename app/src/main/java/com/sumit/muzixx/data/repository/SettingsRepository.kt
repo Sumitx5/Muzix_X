@@ -94,6 +94,11 @@ class SettingsRepository(
                 }
             }
             launch {
+                settingsManager.userGenderFlow.collectLatest { value ->
+                    withContext(Dispatchers.Main) { userGender = value }
+                }
+            }
+            launch {
                 settingsManager.appThemeFlow.collectLatest { value ->
                     withContext(Dispatchers.Main) { appTheme = value }
                 }
