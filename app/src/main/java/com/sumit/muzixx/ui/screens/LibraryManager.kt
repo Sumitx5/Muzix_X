@@ -26,7 +26,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -109,7 +108,7 @@ fun PlaylistDetailView(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = Color(0xFF333333)
+                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -131,8 +130,8 @@ fun PlaylistDetailView(
                 enabled = playlistSongs.isNotEmpty(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onSurface,
-                    disabledContainerColor = Color(0xFF333333)
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                 ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier
@@ -164,7 +163,7 @@ fun PlaylistDetailView(
                 }
             }
         }
-        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = Color(0xFF1A1A1A))
+        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
     }
 
     if (playlistSongs.isEmpty()) {
@@ -220,7 +219,7 @@ fun LibrarySongItem(
             modifier = Modifier
                 .size(52.dp)
                 .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF1A1A1A)),
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             error = painterResource(id = R.drawable.default_music),
             placeholder = painterResource(id = R.drawable.default_music),
             contentScale = ContentScale.Crop
@@ -259,15 +258,16 @@ fun LibrarySongItem(
             DropdownMenu(
                 expanded = showSongMenu,
                 onDismissRequest = { showSongMenu = false },
-                modifier = Modifier.background(MaterialTheme.colorScheme.background)
+                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface) },
+                    text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                     onClick = {
                         showSongMenu = false
                         onActionClick()
                     },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null)}
+                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)},
+                    colors = MenuDefaults.itemColors()
                 )
 
                 if (!isSystemPlaylist) {
@@ -277,13 +277,13 @@ fun LibrarySongItem(
                             showSongMenu = false
                             onRemoveClick()
                         },
-                        leadingIcon = { Icon(Icons.Rounded.PlaylistRemove, contentDescription = null)}
+                        leadingIcon = { Icon(Icons.Rounded.PlaylistRemove, contentDescription = null, tint = MaterialTheme.colorScheme.error)}
                     )
                 }
             }
         }
     }
-    HorizontalDivider(color = Color(0xFF111111), thickness = 0.5.dp)
+    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 0.5.dp)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -307,7 +307,7 @@ fun PlaylistRootListView(
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            containerColor = MaterialTheme.colorScheme.background,
             titleContentColor = MaterialTheme.colorScheme.onSurface,
             actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -351,21 +351,20 @@ fun PlaylistRootListView(
                             DropdownMenu(
                                 expanded = playlistPendingActionsMenu?.id == playlist.id,
                                 onDismissRequest = onMenuDismiss,
-                                modifier = Modifier.background(MaterialTheme.colorScheme.background).padding(start = 10.dp)
+                                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant).padding(start = 10.dp)
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurface) },
+                                    text = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurfaceVariant) },
                                     onClick = onRenameTrigger,
-                                    leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null)}
+                                    leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)}
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Delete Playlist", color = MaterialTheme.colorScheme.error) },
                                     onClick = { onDeleteTrigger(playlist.id) },
-                                    leadingIcon = { Icon(Icons.Rounded.FolderDelete, null)}
+                                    leadingIcon = { Icon(Icons.Rounded.FolderDelete, null, tint = MaterialTheme.colorScheme.error)}
                                 )
                             }
                         }
-
                     }
 
                     if (!isSystemPlaylist) {
@@ -373,14 +372,14 @@ fun PlaylistRootListView(
                             Icon(
                                 imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.surfaceVariant
+                                // ⚡ THE FIX: Changes unselected side option drop flags to read appropriately
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
-
             }
-            HorizontalDivider(color = Color(0xFF111111), thickness = 0.5.dp)
+            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 0.5.dp)
         }
     }
 }
@@ -411,14 +410,14 @@ fun PlaylistSelectorDialog(
                                 .clickable { onPlaylistChosen(targetPlaylist.id) }
                                 .padding(vertical = 14.dp, horizontal = 8.dp)
                         )
-                        HorizontalDivider(color = Color(0xFF222222))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
                     }
                 }
             }
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close", color = MaterialTheme.colorScheme.surfaceVariant) }
+            TextButton(onClick = onDismiss) { Text("Close", color = MaterialTheme.colorScheme.primary) }
         }
     )
 }
@@ -432,7 +431,7 @@ fun RenamePlaylistDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
         title = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = {
             OutlinedTextField(
@@ -442,8 +441,10 @@ fun RenamePlaylistDialog(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    focusedTextColor = MaterialTheme.colorScheme.surfaceVariant, unfocusedTextColor = MaterialTheme.colorScheme.surfaceVariant
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -451,7 +452,7 @@ fun RenamePlaylistDialog(
             TextButton(onClick = onSave) { Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.surfaceVariant) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
         }
     )
 }
@@ -465,8 +466,8 @@ fun CreatePlaylistDialog(
 ) {
     AlertDialog(
         onDismissRequest = { onDismiss() },
-        containerColor = MaterialTheme.colorScheme.onSurface,
-        title = { Text("New Playlist", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.Bold) },
+        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+        title = { Text("New Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
         text = {
             OutlinedTextField(
                 value = nameInput,
@@ -475,8 +476,10 @@ fun CreatePlaylistDialog(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = MaterialTheme.colorScheme.primary, focusedLabelColor = MaterialTheme.colorScheme.primary,
-                    focusedTextColor = MaterialTheme.colorScheme.onPrimary, unfocusedTextColor = MaterialTheme.colorScheme.onPrimary
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
+                    focusedLabelColor = MaterialTheme.colorScheme.primary,
+                    focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                    unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -484,7 +487,7 @@ fun CreatePlaylistDialog(
             TextButton(onClick = onCreate) { Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.surfaceVariant) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
         }
     )
 }
