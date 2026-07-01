@@ -1,5 +1,6 @@
 package com.sumit.muzixx.ui.components
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
@@ -8,11 +9,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemColors
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 
 @Composable
 fun MuzixBottomBar(
@@ -22,17 +22,14 @@ fun MuzixBottomBar(
 ) {
     NavigationBar(
         modifier = modifier,
-        containerColor = Color.Transparent.copy(alpha = 0.8f)
+        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
     ) {
-        val primaryTheme = MaterialTheme.colorScheme.primary
-        val cS = NavigationBarItemColors(
-            primaryTheme,
-            primaryTheme,
-            primaryTheme.copy(alpha = 0.2f),
-            Color.White,
-            Color.White,
-            Color.LightGray,
-            Color.LightGray
+        val cS = NavigationBarItemDefaults.colors(
+            selectedIconColor = MaterialTheme.colorScheme.primary,
+            selectedTextColor = MaterialTheme.colorScheme.primary,
+            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+            unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
+            unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
         )
 
         NavigationBarItem(
