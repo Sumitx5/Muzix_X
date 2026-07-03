@@ -22,7 +22,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -103,11 +102,10 @@ fun HomeScreen(
         },
         userName = currentUserName
     ) {
-        // Root container layer
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(Color.Black)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 // TOP BAR AREA
@@ -121,7 +119,7 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Rounded.AccountCircle,
                             contentDescription = "Open Navigation Menu",
-                            tint = Color.White
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
 
@@ -129,13 +127,13 @@ fun HomeScreen(
                         Text(
                             text = "Hello, $currentUserName 👋",
                             style = MaterialTheme.typography.titleMedium,
-                            color = Color.Gray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             text = "Discover Music",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onBackground
                         )
                     }
                 }
@@ -206,7 +204,7 @@ fun HomeScreen(
                                                 modifier = Modifier
                                                     .size(130.dp)
                                                     .clip(RoundedCornerShape(16.dp))
-                                                    .background(Color(0xFF1A1A1A)),
+                                                    .background(MaterialTheme.colorScheme.surfaceVariant),
                                                 error = painterResource(R.drawable.default_music),
                                                 placeholder = painterResource(R.drawable.default_music),
                                                 contentScale = ContentScale.Crop
@@ -214,7 +212,7 @@ fun HomeScreen(
                                             Spacer(Modifier.height(8.dp))
                                             Text(
                                                 text = playlist.name ?: "Unknown Playlist",
-                                                color = Color.White,
+                                                color = MaterialTheme.colorScheme.onSurface,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                                 fontWeight = FontWeight.SemiBold,
@@ -222,7 +220,7 @@ fun HomeScreen(
                                             )
                                             Text(
                                                 text = "${playlist.songCount ?: 0} Tracks",
-                                                color = Color(0xFFB3B3B3),
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 style = MaterialTheme.typography.bodySmall
                                             )
                                         }
@@ -263,7 +261,7 @@ fun HomeScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black)
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
                     Row(
                         modifier = Modifier
@@ -275,7 +273,7 @@ fun HomeScreen(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Back",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onBackground
                             )
                         }
                         Spacer(modifier = Modifier.width(8.dp))
@@ -286,7 +284,7 @@ fun HomeScreen(
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -302,8 +300,8 @@ fun HomeScreen(
                             enabled = playlistSongs.isNotEmpty() && !viewModel.isCloudPlaylistLoading,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = accentColor,
-                                contentColor = Color.White,
-                                disabledContainerColor = Color(0xFF1C1C1C)
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
@@ -318,8 +316,8 @@ fun HomeScreen(
                             enabled = playlistSongs.isNotEmpty() && !viewModel.isCloudPlaylistLoading,
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = accentColor,
-                                contentColor = Color.White,
-                                disabledContainerColor = Color(0xFF333333)
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                             ),
                             shape = RoundedCornerShape(12.dp),
                             modifier = Modifier.weight(1f).height(48.dp)
@@ -330,7 +328,10 @@ fun HomeScreen(
                         }
                     }
 
-                    HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = Color(0xFF1A1A1A))
+                    HorizontalDivider(
+                        modifier = Modifier.padding(top = 12.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                    )
 
                     Box(
                         modifier = Modifier.fillMaxWidth().weight(1f),
@@ -339,7 +340,7 @@ fun HomeScreen(
                         if (viewModel.isCloudPlaylistLoading) {
                             CircularProgressIndicator(color = accentColor)
                         } else if (playlistSongs.isEmpty()) {
-                            Text("No tracks found inside this playlist.", color = Color.Gray)
+                            Text("No tracks found inside this playlist.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -365,14 +366,14 @@ fun HomeScreen(
                                         Column(modifier = Modifier.weight(1f)) {
                                             Text(
                                                 text = song.title,
-                                                color = Color.White,
+                                                color = MaterialTheme.colorScheme.onSurface,
                                                 fontWeight = FontWeight.Bold,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
                                             Text(
                                                 text = song.artist,
-                                                color = Color.Gray,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis
                                             )
@@ -426,7 +427,7 @@ private fun SongSection(
                 Text(
                     text = "No tracks found here.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         } else {
@@ -456,7 +457,7 @@ private fun SongCard(song: Song, onClick: () -> Unit) {
             modifier = Modifier
                 .size(130.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFF1A1A1A)),
+                .background(MaterialTheme.colorScheme.surfaceVariant),
             error = painterResource(R.drawable.default_music),
             placeholder = painterResource(R.drawable.default_music),
             contentScale = ContentScale.Crop
@@ -466,7 +467,7 @@ private fun SongCard(song: Song, onClick: () -> Unit) {
 
         Text(
             text = song.title,
-            color = Color.White,
+            color = MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.SemiBold,
@@ -476,7 +477,7 @@ private fun SongCard(song: Song, onClick: () -> Unit) {
 
         Text(
             text = song.artist,
-            color = Color(0xFFB3B3B3),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodySmall,

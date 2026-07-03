@@ -1,7 +1,6 @@
 package com.sumit.muzixx.ui.components
 
 import android.annotation.SuppressLint
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
@@ -15,15 +14,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.milliseconds
 
 @SuppressLint("DefaultLocale")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +43,6 @@ fun EqualizerPage(
     val selectedPresetIndex = if (isSettingsInit) viewModel.settings.eqPresetIndex else 0
 
     val standardBands = listOf("31", "62", "125", "250", "500", "1k", "2k", "4k", "8k", "16k")
-
     val bandValues = remember { mutableStateListOf<Float>() }
 
     LaunchedEffect(isSettingsInit, viewModel.settings.eqBands.size) {
@@ -52,7 +54,6 @@ fun EqualizerPage(
         }
     }
 
-    //Preset mappings
     val presets = listOf("Default", "Classic", "Pop", "Rock", "Jazz", "Custom")
     var selectedPreset by remember(selectedPresetIndex) {
         mutableStateOf(if (selectedPresetIndex in presets.indices && selectedPresetIndex != -1) presets[selectedPresetIndex] else "Custom")
@@ -61,8 +62,16 @@ fun EqualizerPage(
     val accentColor = MaterialTheme.colorScheme.primary
     val surfaceColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
 
+    var localBassBoost by remember(bassBoost) { mutableFloatStateOf(bassBoost) }
     var loudness by remember { mutableFloatStateOf(0.0f) }
     var loudnessEnabled by remember { mutableStateOf(false) }
+
+    LaunchedEffect(localBassBoost) {
+        if (localBassBoost == bassBoost) return@LaunchedEffect
+
+        delay(30.milliseconds)
+        viewModel.setBassBoostStrength(localBassBoost)
+    }
 
     Scaffold(
         topBar = {
@@ -70,7 +79,11 @@ fun EqualizerPage(
                 title = { Text("Equalizer", style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
-                        Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 },
                 actions = {
@@ -81,19 +94,17 @@ fun EqualizerPage(
                         Text(
                             text = if (isEqEnabled) "ON" else "OFF",
                             style = MaterialTheme.typography.labelMedium,
-                            color = if (isEqEnabled) accentColor else Color.Gray,
+                            color = if (isEqEnabled) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 8.dp)
                         )
                         Switch(
                             checked = isEqEnabled,
-                            onCheckedChange = {
-                                viewModel.setEqualizerEnabled(it)
-                            },
+                            onCheckedChange = { viewModel.setEqualizerEnabled(it) },
                             colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
+                                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                                 checkedTrackColor = accentColor,
-                                uncheckedThumbColor = Color.Gray,
-                                uncheckedTrackColor = Color.DarkGray.copy(alpha = 0.5f)
+                                uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                             )
                         )
                     }
@@ -120,7 +131,7 @@ fun EqualizerPage(
                             Text(
                                 text = String.format("%+.1f", valDb),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = if (isEqEnabled) Color.White else Color.Gray
+                                color = if (isEqEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -128,6 +139,9 @@ fun EqualizerPage(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
+                        val gridLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
+                        val unselectedDotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+
                         Canvas(
                             modifier = Modifier.fillMaxSize().pointerInput(isEqEnabled, bandValues.size) {
                                 if (!isEqEnabled || bandValues.isEmpty()) return@pointerInput
@@ -141,7 +155,7 @@ fun EqualizerPage(
                                     val dbTarget = 15f - (pctY * 30f)
                                     if (idx in 0 until bandValues.size) {
                                         bandValues[idx] = dbTarget
-                                        viewModel.setBandLevel(idx, dbTarget) // UPDATES PIPELINE + DISK
+                                        viewModel.setBandLevel(idx, dbTarget)
                                     }
                                 }
                             }
@@ -158,7 +172,7 @@ fun EqualizerPage(
                             }
 
                             pts.forEach { pt ->
-                                drawLine(Color.Gray.copy(alpha = 0.2f), Offset(pt.x, 0f), Offset(pt.x, size.height), strokeWidth = 2f)
+                                drawLine(gridLineColor, Offset(pt.x, 0f), Offset(pt.x, size.height), strokeWidth = 2f)
                             }
 
                             if (pts.isNotEmpty() && isEqEnabled) {
@@ -172,7 +186,7 @@ fun EqualizerPage(
                             }
 
                             pts.forEach { pt ->
-                                drawCircle(if (isEqEnabled) accentColor else Color.Gray, radius = 5.dp.toPx(), center = pt)
+                                drawCircle(if (isEqEnabled) accentColor else unselectedDotColor, radius = 5.dp.toPx(), center = pt)
                             }
                         }
                     }
@@ -181,7 +195,7 @@ fun EqualizerPage(
 
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         standardBands.forEach { b ->
-                            Text(b, style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                            Text(b, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -209,11 +223,9 @@ fun EqualizerPage(
                             structuralValues?.let { updatedProfile ->
                                 bandValues.clear()
                                 bandValues.addAll(updatedProfile)
-
                                 updatedProfile.forEachIndexed { bandIdx, dbVal ->
                                     viewModel.setBandLevel(bandIdx, dbVal)
                                 }
-
                                 viewModel.setEqualizerPresetLive(index.toShort())
                             }
                         },
@@ -226,20 +238,20 @@ fun EqualizerPage(
                 }
             }
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().height(240.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ExpressiveKnobCard(
+                ExpressiveVerticalSliderCard(
                     title = "Bass Boost",
-                    value = bassBoost,
+                    value = localBassBoost,
                     isEnabled = bassEnabled,
                     cardBg = surfaceColor,
                     accent = accentColor,
-                    onValChange = { viewModel.setBassBoostStrength(it) },
+                    onValChange = { localBassBoost = it },
                     onToggle = { viewModel.setBassBoostEnabled(it) },
                     modifier = Modifier.weight(1f)
                 )
-                ExpressiveKnobCard(
+                ExpressiveVerticalSliderCard(
                     title = "Loudness",
                     value = loudness,
                     isEnabled = loudnessEnabled,
@@ -261,22 +273,18 @@ fun EqualizerPage(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Volume", style = MaterialTheme.typography.titleMedium)
+                        Text("Volume", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(4.dp))
                         Slider(
                             value = viewModel.currentVolume,
-                            onValueChange = { newVolume ->
-                                viewModel.setMasterVolume(newVolume)
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = accentColor,
-                                activeTrackColor = accentColor
-                            )
+                            onValueChange = { viewModel.setMasterVolume(it) },
+                            colors = SliderDefaults.colors(thumbColor = accentColor, activeTrackColor = accentColor)
                         )
                     }
                     Text(
                         text = "${(viewModel.currentVolume * 100).toInt()}%",
                         style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(start = 16.dp, top = 20.dp)
                     )
                 }
@@ -286,7 +294,7 @@ fun EqualizerPage(
 }
 
 @Composable
-fun ExpressiveKnobCard(
+fun ExpressiveVerticalSliderCard(
     title: String,
     value: Float,
     isEnabled: Boolean,
@@ -296,52 +304,80 @@ fun ExpressiveKnobCard(
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val animatedAccent by animateColorAsState(if (isEnabled) accent else Color.Gray, label = "")
-
     Card(
         shape = MaterialTheme.shapes.extraLarge.copy(all = CornerSize(24.dp)),
         colors = CardDefaults.cardColors(containerColor = cardBg),
-        modifier = modifier
+        modifier = modifier.fillMaxHeight()
     ) {
         Column(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier = Modifier.padding(12.dp).fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(title, style = MaterialTheme.typography.labelLarge, color = Color.White)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${(value * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Box(
-                contentAlignment = Alignment.Center,
                 modifier = Modifier
-                    .size(90.dp)
-                    .pointerInput(isEnabled) {
-                        if (!isEnabled) return@pointerInput
-                        detectDragGestures { change, _ ->
-                            change.consume()
-                            val absolutePercentY = 1f - (change.position.y / size.height)
-                            onValChange(absolutePercentY.coerceIn(0f, 1f))
-                        }
-                    }
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Canvas(modifier = Modifier.size(70.dp)) {
-                    val sw = 5.dp.toPx()
-                    val aSize = Size(size.width - sw, size.height - sw)
-                    val tl = Offset(sw / 2, sw / 2)
-
-                    drawArc(Color.Gray.copy(alpha = 0.2f), 140f, 260f, false, tl, aSize, style = Stroke(sw, cap = StrokeCap.Round))
-                    drawArc(animatedAccent, 140f, 260f * value, false, tl, aSize, style = Stroke(sw, cap = StrokeCap.Round))
-                }
-                Text("${(value * 100).toInt()}%", style = MaterialTheme.typography.titleMedium)
+                Slider(
+                    value = value,
+                    onValueChange = onValChange,
+                    enabled = isEnabled,
+                    colors = SliderDefaults.colors(
+                        thumbColor = accent,
+                        activeTrackColor = accent,
+                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
+                        disabledThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
+                        disabledActiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                    ),
+                    modifier = Modifier
+                        .rotate(270f)
+                        .layout { measurable, constraints ->
+                            val placeable = measurable.measure(
+                                constraints.copy(
+                                    minWidth = constraints.minHeight,
+                                    maxWidth = constraints.maxHeight,
+                                    minHeight = constraints.minWidth,
+                                    maxHeight = constraints.maxWidth
+                                )
+                            )
+                            layout(placeable.height, placeable.width) {
+                                placeable.place(
+                                    -placeable.width / 2 + placeable.height / 2,
+                                    -placeable.height / 2 + placeable.width / 2
+                                )
+                            }
+                        }
+                        .width(130.dp)
+                )
             }
 
             Switch(
                 checked = isEnabled,
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = Color.White,
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = accent,
-                    uncheckedThumbColor = Color.Gray,
-                    uncheckedTrackColor = Color.DarkGray.copy(alpha = 0.3f)
-                )
+                    uncheckedThumbColor = MaterialTheme.colorScheme.outline,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ),
+                modifier = Modifier.padding(top = 4.dp)
             )
         }
     }

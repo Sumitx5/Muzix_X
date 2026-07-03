@@ -1,6 +1,5 @@
 package com.sumit.muzixx.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -16,7 +15,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-
 
 @Composable
 fun HomeNavigationDrawer(
@@ -35,19 +33,18 @@ fun HomeNavigationDrawer(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(0.75f),
-                drawerContainerColor = Color.Black
+                drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black)
                         .padding(20.dp)
                 ) {
                     DrawerProfileItem(userName = userName, onClick = onProfileClick)
 
                     HorizontalDivider(
                         modifier = Modifier.padding(vertical = 12.dp),
-                        color = Color(0xFF222222)
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
                     )
 
                     DrawerItem(
@@ -91,12 +88,20 @@ private fun DrawerProfileItem(
             imageVector = Icons.Rounded.AccountCircle,
             contentDescription = "User profile icon",
             modifier = Modifier.size(48.dp),
-            tint = Color.White
+            tint = MaterialTheme.colorScheme.onSurface
         )
         Spacer(Modifier.width(14.dp))
         Column {
-            Text(userName, fontWeight = FontWeight.Bold, color = Color.White)
-            Text("View Profile", style = MaterialTheme.typography.bodySmall, color = Color(0xFFB3B3B3))
+            Text(
+                text = userName,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "View Profile",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -108,13 +113,19 @@ private fun DrawerItem(
     onClick: () -> Unit
 ) {
     NavigationDrawerItem(
-        label = { Text(text, color = Color.White, fontWeight = FontWeight.Medium) },
-        icon = { Icon(icon, null, tint = Color.White) },
+        label = {
+            Text(
+                text = text,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        },
+        icon = { Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
         selected = false,
         onClick = onClick,
         colors = NavigationDrawerItemDefaults.colors(
             unselectedContainerColor = Color.Transparent,
-            selectedContainerColor = Color(0xFF1A1A1A)
+            selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
         modifier = Modifier.padding(vertical = 4.dp)
     )

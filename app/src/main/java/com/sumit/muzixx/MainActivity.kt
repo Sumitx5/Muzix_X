@@ -19,6 +19,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -83,8 +84,6 @@ class MainActivity : ComponentActivity() {
         }
 
         enableEdgeToEdge()
-        window.statusBarColor = android.graphics.Color.TRANSPARENT
-        window.navigationBarColor = android.graphics.Color.BLACK
 
         setContent {
             MuzixXTheme(viewModel = musicViewModel) {
@@ -94,6 +93,29 @@ class MainActivity : ComponentActivity() {
 
                 val selectedSong = musicViewModel.selectedSong
                 val isFullScreenView = currentScreen == "Profile" || currentScreen == "Settings"
+
+                val view = androidx.compose.ui.platform.LocalView.current
+                if (!view.isInEditMode) {
+                    val isSystemInDark = androidx.compose.foundation.isSystemInDarkTheme()
+                    val isLightMode = if (musicViewModel.isSettingsInitialized()) {
+                        musicViewModel.settings.appTheme == "Match System" && !isSystemInDark
+                    } else {
+                        !isSystemInDark
+                    }
+
+                    DisposableEffect(isLightMode) {
+                        val window = (context as android.app.Activity).window
+                        val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, view)
+
+                        window.statusBarColor = android.graphics.Color.TRANSPARENT
+                        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+
+                        insetsController.isAppearanceLightStatusBars = isLightMode
+                        insetsController.isAppearanceLightNavigationBars = isLightMode
+
+                        onDispose {}
+                    }
+                }
 
                 BackHandler(enabled = true) {
                     if (showFullPlayer) {
@@ -159,7 +181,7 @@ class MainActivity : ComponentActivity() {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black)
+                        .background(MaterialTheme.colorScheme.background)
                 ) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
@@ -202,7 +224,6 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             }
-
                             if (!isFullScreenView) {
                                 Column(
                                     modifier = Modifier
@@ -218,7 +239,7 @@ class MainActivity : ComponentActivity() {
                                             onMiniPlayerClick = { showFullPlayer = true },
                                             modifier = Modifier
                                                 .align(Alignment.CenterHorizontally)
-                                                .padding(bottom = 4.dp)
+                                                .padding(bottom = 8.dp)
                                         )
                                     }
 
