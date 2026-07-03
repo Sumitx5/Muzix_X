@@ -14,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,8 +28,6 @@ fun PlaylistSelectorContent(
     onCloseClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val customLightGrey = Color(0xFFB3B3B3)
-
     Column(modifier = modifier.padding(16.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -39,7 +36,7 @@ fun PlaylistSelectorContent(
         ) {
             Text(
                 text = "Add to Playlist",
-                color = Color.White,
+                color = MaterialTheme.colorScheme.onSurface,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -47,7 +44,7 @@ fun PlaylistSelectorContent(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close Menu",
-                    tint = Color.White
+                    tint = MaterialTheme.colorScheme.onSurface
                 )
             }
         }
@@ -67,7 +64,7 @@ fun PlaylistSelectorContent(
             Text(
                 text = "No custom playlists found. Go to Library to create one!",
                 style = MaterialTheme.typography.bodyMedium,
-                color = customLightGrey,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(vertical = 16.dp)
             )
         } else {
@@ -83,7 +80,7 @@ fun PlaylistSelectorContent(
                     ) {
                         Text(
                             text = playlist.name,
-                            color = Color.White,
+                            color = MaterialTheme.colorScheme.onSurface,
                             style = MaterialTheme.typography.bodyLarge,
                             fontWeight = FontWeight.Medium,
                             maxLines = 1,
@@ -93,7 +90,7 @@ fun PlaylistSelectorContent(
                         Text(
                             text = "${playlist.songs.size} tracks",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = customLightGrey
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
