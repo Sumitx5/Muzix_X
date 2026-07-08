@@ -47,6 +47,7 @@ import com.sumit.muzixx.data.network.MuzixDownloader
 import com.sumit.muzixx.ui.screens.SettingsScreen
 import com.sumit.muzixx.data.Song
 import com.sumit.muzixx.ui.screens.IntegrationScreen
+import com.sumit.muzixx.ui.screens.ListenTogether
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -203,7 +204,8 @@ class MainActivity : ComponentActivity() {
                                         context = context,
                                         onProfileClick = { currentScreen = "Profile" },
                                         onSettingsClick = { currentScreen = "Settings" },
-                                        onIntegrationClick = { currentScreen = "Integration"}
+                                        onIntegrationClick = { currentScreen = "Integration" },
+                                        onListenTogetherClick = { currentScreen = "ListenTogether" }
                                     )
                                     "Search" -> SearchScreen(viewModel = musicViewModel)
                                     "Library" -> LibraryScreen(viewModel = musicViewModel)
@@ -219,6 +221,10 @@ class MainActivity : ComponentActivity() {
                                     )
                                     "Integration" -> IntegrationScreen(
                                         viewModel = musicViewModel,
+                                        onBackClick = { currentScreen = "Home"},
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                    "ListenTogether" -> ListenTogether(
                                         onBackClick = { currentScreen = "Home"},
                                         modifier = Modifier.fillMaxSize()
                                     )

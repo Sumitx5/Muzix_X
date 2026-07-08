@@ -44,6 +44,7 @@ fun HomeScreen(
     onProfileClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onIntegrationClick: () -> Unit,
+    onListenTogetherClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -99,6 +100,10 @@ fun HomeScreen(
         onIntegrationsClick = {
             scope.launch { drawerState.close() }
             onIntegrationClick()
+        },
+        onListenTogetherClick = {
+            scope.launch { drawerState.close() }
+            //Pass
         },
         userName = currentUserName
     ) {

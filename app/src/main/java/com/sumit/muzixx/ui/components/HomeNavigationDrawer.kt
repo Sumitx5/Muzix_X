@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Api
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.*
@@ -24,6 +25,7 @@ fun HomeNavigationDrawer(
     onCheckUpdatesClick: () -> Unit,
     onSettingsClick: () -> Unit,
     onIntegrationsClick: () -> Unit,
+    onListenTogetherClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
     ModalNavigationDrawer(
@@ -57,6 +59,12 @@ fun HomeNavigationDrawer(
                         text = "Integrations",
                         icon = Icons.Rounded.Api,
                         onClick = onIntegrationsClick
+                    )
+
+                    DrawerItem(
+                        text = "Listen Together",
+                        icon = Icons.Rounded.Headphones,
+                        onClick = onListenTogetherClick
                     )
 
                     DrawerItem(
