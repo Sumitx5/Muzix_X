@@ -34,7 +34,7 @@ class PlaylistController(private val onSavePlaylists: () -> Unit) {
                         else "local"
                     }
 
-                    song.copy(uri = "", type = resolvedType, isStreaming = resolvedType != "local")
+                    song.copy(type = resolvedType, isStreaming = resolvedType != "local")
                 }
                 playlists.add(Playlist(id = playlist.id, name = playlist.name, songs = cleanedSongs))
             }
@@ -47,7 +47,7 @@ class PlaylistController(private val onSavePlaylists: () -> Unit) {
         val customLists = playlists.filter { it.id != "local_songs" && !it.id.startsWith("folder_") }
         val sanitizedLists = customLists.map { playlist ->
             val sanitizedSongs = playlist.songs.map { song ->
-                song.copy(uri = "")
+                song.copy()
             }
             playlist.copy(songs = sanitizedSongs)
         }
