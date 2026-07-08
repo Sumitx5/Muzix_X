@@ -103,7 +103,7 @@ fun HomeScreen(
         },
         onListenTogetherClick = {
             scope.launch { drawerState.close() }
-            //Pass
+            onListenTogetherClick()
         },
         userName = currentUserName
     ) {
@@ -174,7 +174,7 @@ fun HomeScreen(
                                 text = "Featured 90's Playlists",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
-                                color = accentColor,
+                                color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             )
                             Spacer(Modifier.height(12.dp))
@@ -406,7 +406,7 @@ private fun SongSection(
             text = title,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
 

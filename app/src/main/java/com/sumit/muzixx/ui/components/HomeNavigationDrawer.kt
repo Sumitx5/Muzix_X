@@ -34,7 +34,7 @@ fun HomeNavigationDrawer(
             ModalDrawerSheet(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(0.75f),
+                    .fillMaxWidth(0.80f),
                 drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
             ) {
                 Column(
