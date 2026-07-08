@@ -63,6 +63,10 @@ fun LibraryScreen(
                     onSongActionClick = { song ->
                         activeSongForMenu = song
                         showPlaylistSelector = true
+                    },
+                    onBackClick = {
+                        viewModel.selectedPlaylist =
+                            null
                     }
                 )
             } else {
@@ -78,7 +82,10 @@ fun LibraryScreen(
                         playlistPendingActionsMenu = playlist
                     },
                     onMenuDismiss = { playlistPendingActionsMenu = null },
-                    onRenameTrigger = { showRenameDialog = true },
+                    onRenameTrigger = {
+                        playlistPendingActionsMenu = null
+                        showRenameDialog = true
+                    },
                     onDeleteTrigger = { id -> viewModel.deletePlaylist(id) }
                 )
             }

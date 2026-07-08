@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.FeaturedPlayList
@@ -64,11 +65,17 @@ fun PlaylistDetailView(
     bottomPadding: androidx.compose.ui.unit.Dp,
     onPlaybackRequest: (List<Song>, Int) -> Unit,
     onEditRequest: (String, String) -> Unit,
-    onSongActionClick: (Song) -> Unit
+    onSongActionClick: (Song) -> Unit,
+    onBackClick: () -> Unit
 ) {
+
+    BackHandler {
+        viewModel.selectedPlaylist = null
+        onBackClick()
+    }
+
     val playlistSongs = currentPlaylist.songs
     val isSystemPlaylist = currentPlaylist.id == "local_songs" || currentPlaylist.id.startsWith("folder_")
-
     Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
         Row(
             modifier = Modifier
@@ -76,7 +83,10 @@ fun PlaylistDetailView(
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { viewModel.selectedPlaylist = null }) {
+            IconButton(onClick = {
+                viewModel.selectedPlaylist = null
+                onBackClick()
+            }) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
@@ -372,7 +382,6 @@ fun PlaylistRootListView(
                             Icon(
                                 imageVector = Icons.Rounded.MoreVert,
                                 contentDescription = null,
-                                // ⚡ THE FIX: Changes unselected side option drop flags to read appropriately
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
