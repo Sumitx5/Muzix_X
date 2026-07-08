@@ -55,6 +55,6 @@ An elegant, high-performance Android music streaming and local playback applicat
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
 
 ## Contributors & Beta Testers 
-* **[Chirag]()**
-* **[Tushar]()**
-* **[Nitin](https://github.com/)**
+* **[Chirag](https://github.com/khatrix07)**
+* **[Tushar](https://github.com/Agent00889)**
+* **[Nitin](https://github.com/nitin-arch1912)**
