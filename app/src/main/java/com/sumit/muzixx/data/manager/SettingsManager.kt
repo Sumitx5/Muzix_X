@@ -46,7 +46,7 @@ class SettingsManager(private val context: Context) {
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME] ?: "User" }
     val appThemeFlow: Flow<String> = context.dataStore.data.map { it[APP_THEME] ?: "Neon Red" }
     val userGenderFlow: Flow<String> = context.dataStore.data.map { it[USER_GENDER] ?: "Prefer Not to Say" }
-    val eqEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[EQ_ENABLED] ?: true }
+    val eqEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[EQ_ENABLED] ?: false }
     val eqPresetIndexFlow: Flow<Int> = context.dataStore.data.map { it[EQ_PRESET_INDEX] ?: 0 }
     val bassEnabledFlow: Flow<Boolean> = context.dataStore.data.map { it[BASS_ENABLED] ?: false }
     val bassStrengthFlow: Flow<Float> = context.dataStore.data.map { it[BASS_STRENGTH] ?: 0.0f }
