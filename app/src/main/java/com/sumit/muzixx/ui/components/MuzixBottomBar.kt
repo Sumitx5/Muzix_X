@@ -1,18 +1,26 @@
 package com.sumit.muzixx.ui.components
 
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 
 @Composable
 fun MuzixBottomBar(
@@ -20,40 +28,98 @@ fun MuzixBottomBar(
     onTabSelected: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    NavigationBar(
-        modifier = modifier,
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 10.dp),
+        contentAlignment = Alignment.Center
     ) {
-        val cS = NavigationBarItemDefaults.colors(
-            selectedIconColor = MaterialTheme.colorScheme.primary,
-            selectedTextColor = MaterialTheme.colorScheme.primary,
-            indicatorColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-            unselectedIconColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f),
-            unselectedTextColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-        )
+        Surface(
+            shape = RoundedCornerShape(20.dp),
+            color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
+            border = BorderStroke(
+                width = 1.dp,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+            ),
+            tonalElevation = 6.dp,
+            shadowElevation = 10.dp
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                    .wrapContentWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                MuzixCapsuleItem(
+                    label = "Home",
+                    icon = Icons.Rounded.Home,
+                    isSelected = currentScreen == "Home",
+                    onClick = { onTabSelected("Home") }
+                )
 
-        NavigationBarItem(
-            selected = currentScreen == "Home",
-            onClick = { onTabSelected("Home") },
-            icon = { Icon(imageVector = Icons.Rounded.Home, contentDescription = "Home") },
-            label = { Text("Home") },
-            colors = cS
-        )
+                MuzixCapsuleItem(
+                    label = "Search",
+                    icon = Icons.Rounded.Search,
+                    isSelected = currentScreen == "Search",
+                    onClick = { onTabSelected("Search") }
+                )
 
-        NavigationBarItem(
-            selected = currentScreen == "Search",
-            onClick = { onTabSelected("Search") },
-            icon = { Icon(imageVector = Icons.Rounded.Search, contentDescription = "Search") },
-            label = { Text("Search") },
-            colors = cS
-        )
+                MuzixCapsuleItem(
+                    label = "Library",
+                    icon = Icons.Rounded.LibraryMusic,
+                    isSelected = currentScreen == "Library",
+                    onClick = { onTabSelected("Library") }
+                )
+            }
+        }
+    }
+}
 
-        NavigationBarItem(
-            selected = currentScreen == "Library",
-            onClick = { onTabSelected("Library") },
-            icon = { Icon(imageVector = Icons.Rounded.LibraryMusic, contentDescription = "Library") },
-            label = { Text("Library") },
-            colors = cS
-        )
+@Composable
+private fun MuzixCapsuleItem(
+    label: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val contentColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    val containerColor = if (isSelected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+    } else {
+        Color.Transparent
+    }
+
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerColor)
+            .clickable { onClick() }
+            .padding(horizontal = 17.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = contentColor,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = contentColor
+            )
+        }
     }
 }
