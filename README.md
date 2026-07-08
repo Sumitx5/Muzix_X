@@ -3,8 +3,8 @@
 
 An elegant, high-performance Android music streaming and local playback application built entirely with Jetpack Compose and Material 3 design principles.
 
-[![Github All Releases](https://img.shields.io/github/downloads/sumit282698/Muzix_X/total.svg?style=flat-square)](https://github.com/sumit282698/Muzix_X/releases)
-[![GitHub Release](https://img.shields.io/github/v/release/sumit282698/Muzix_X?style=flat-square)](https://github.com/sumit282698/Muzix_X/releases/latest)
+[![Github All Releases](https://img.shields.io/github/downloads/sumit282698/Muzix_X/total.svg?style=flat-square)](https://github.com/sumitx5/Muzix_X/releases)
+[![GitHub Release](https://img.shields.io/github/v/release/sumit282698/Muzix_X?style=flat-square)](https://github.com/sumitx5/Muzix_X/releases/latest)
 
 ---
 
@@ -53,3 +53,8 @@ An elegant, high-performance Android music streaming and local playback applicat
 * **YouTube Extraction Layer:** Powered by [`SimpMusic Kotlin:youtube-Extractor`](https://github.com/maxrave-dev/kotlin-youtubeExtractor) & [`Pipe`](https://github.com/TeamNewPipe/NewPipe) parsing engines.
 * **Jio Saavn Unofficial Api:** [Link](https://saavn.sumit.co/docs)
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
+
+## Contributors & Beta Testers 
+* **[Chirag]()**
+* **[Tushar]()**
+* **[Nitin](https://github.com/)**
