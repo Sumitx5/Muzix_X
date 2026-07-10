@@ -35,6 +35,9 @@ fun MuzixBottomBar(
         contentAlignment = Alignment.Center
     ) {
         Surface(
+            modifier = Modifier
+                .padding(horizontal = 14.dp)
+                .fillMaxWidth(),
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f),
             border = BorderStroke(
@@ -46,31 +49,37 @@ fun MuzixBottomBar(
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-                    .wrapContentWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                MuzixCapsuleItem(
-                    label = "Home",
-                    icon = Icons.Rounded.Home,
-                    isSelected = currentScreen == "Home",
-                    onClick = { onTabSelected("Home") }
-                )
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        label = "Home",
+                        icon = Icons.Rounded.Home,
+                        isSelected = currentScreen == "Home",
+                        onClick = { onTabSelected("Home") }
+                    )
+                }
 
-                MuzixCapsuleItem(
-                    label = "Search",
-                    icon = Icons.Rounded.Search,
-                    isSelected = currentScreen == "Search",
-                    onClick = { onTabSelected("Search") }
-                )
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        label = "Search",
+                        icon = Icons.Rounded.Search,
+                        isSelected = currentScreen == "Search",
+                        onClick = { onTabSelected("Search") }
+                    )
+                }
 
-                MuzixCapsuleItem(
-                    label = "Library",
-                    icon = Icons.Rounded.LibraryMusic,
-                    isSelected = currentScreen == "Library",
-                    onClick = { onTabSelected("Library") }
-                )
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        label = "Library",
+                        icon = Icons.Rounded.LibraryMusic,
+                        isSelected = currentScreen == "Library",
+                        onClick = { onTabSelected("Library") }
+                    )
+                }
             }
         }
     }
@@ -97,10 +106,11 @@ private fun MuzixCapsuleItem(
 
     Box(
         modifier = Modifier
+            .fillMaxWidth(0.9f)
             .clip(RoundedCornerShape(14.dp))
             .background(containerColor)
             .clickable { onClick() }
-            .padding(horizontal = 17.dp, vertical = 10.dp),
+            .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
