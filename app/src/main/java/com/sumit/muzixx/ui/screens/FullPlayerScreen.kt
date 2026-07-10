@@ -344,11 +344,21 @@ fun FullPlayerScreen(
                                     onClick = {
                                         showOptionsMenu = false
                                         currentSong.let { song ->
-                                            val shareUrl = "https://muzixx1.github.io/MuzixX/share?id=${song.id}&title=${android.net.Uri.encode(song.title)}&artist=${android.net.Uri.encode(song.artist)}&art=${
-                                                android.net.Uri.encode(
-                                                    song.artUri
-                                                )
-                                            }"
+                                            val shortArt = if (song.type == "yt") {
+                                                ""
+                                            } else {
+                                                song.artUri?.substringAfter("c.saavncdn.com/", song.artUri)
+                                                    ?: ""
+                                            }
+
+                                            val compactData = """{"i":"${song.id}","t":"${song.title}","a":"${song.artist}","r":"$shortArt"}"""
+
+                                            val encodedPayload = android.util.Base64.encodeToString(
+                                                compactData.toByteArray(Charsets.UTF_8),
+                                                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+                                            )
+
+                                            val shareUrl = "https://muzixx1.github.io/MuzixX/share?p=$encodedPayload"
 
                                             val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                                 type = "text/plain"

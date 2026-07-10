@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
                 var showFullPlayer by remember { mutableStateOf(false) }
 
                 val selectedSong = musicViewModel.selectedSong
-                val isFullScreenView = currentScreen == "Profile" || currentScreen == "Settings"
+                val isFullScreenView = currentScreen == "Profile" || currentScreen == "Settings" || currentScreen == "Integration" || currentScreen == "ListenTogether"
 
                 val view = androidx.compose.ui.platform.LocalView.current
                 if (!view.isInEditMode) {
@@ -332,27 +332,52 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIncomingDeepLink(uri: android.net.Uri) {
         if ((uri.scheme == "muzixx" || uri.scheme == "https") && uri.pathContainsShare()) {
-            val songId = uri.getQueryParameter("id")
-            val title = uri.getQueryParameter("title") ?: "Unknown Track"
-            val artist = uri.getQueryParameter("artist") ?: "Unknown Artist"
-            val artUri = uri.getQueryParameter("art") ?: ""
+            val payload = uri.getQueryParameter("p")
 
-            if (!songId.isNullOrBlank()) {
-                val sharedSong = Song(
-                    id = songId,
-                    title = title,
-                    artist = artist,
-                    uri = "",
-                    artUri = artUri,
-                    duration = 0,
-                    isStreaming = true,
-                    folderName = "",
-                    type = if (songId.startsWith("yt_")) "yt" else "saavn"
-                )
+            if (!payload.isNullOrBlank()) {
+                try {
+                    val decodedBytes = android.util.Base64.decode(payload, android.util.Base64.URL_SAFE)
+                    val jsonString = String(decodedBytes, Charsets.UTF_8)
 
-                lifecycleScope.launch {
-                    kotlinx.coroutines.delay(600.milliseconds)
-                    musicViewModel.playMusicCollection(listOf(sharedSong), 0)
+                    val jsonObject = org.json.JSONObject(jsonString)
+                    val songId = jsonObject.getString("i")
+                    val title = jsonObject.optString("t", "Unknown Track")
+                    val artist = jsonObject.optString("a", "Unknown Artist")
+                    val rawArt = jsonObject.optString("r", "")
+
+                    if (songId.isNotBlank()) {
+                        val isYoutube = songId.startsWith("yt_")
+
+                        val reconstructedArtUri = when {
+                            isYoutube -> {
+                                val ytId = songId.substringAfter("yt_")
+                                "https://img.youtube.com/vi/$ytId/mqdefault.jpg"
+                            }
+                            rawArt.isNotBlank() && !rawArt.startsWith("http") -> {
+                                "https://c.saavncdn.com/$rawArt"
+                            }
+                            else -> rawArt
+                        }
+
+                        val sharedSong = Song(
+                            id = songId,
+                            title = title,
+                            artist = artist,
+                            uri = "",
+                            artUri = reconstructedArtUri,
+                            duration = 0,
+                            isStreaming = true,
+                            folderName = "",
+                            type = if (isYoutube) "yt" else "saavn"
+                        )
+
+                        lifecycleScope.launch {
+                            kotlinx.coroutines.delay(600.milliseconds)
+                            musicViewModel.playMusicCollection(listOf(sharedSong), 0)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
         }
