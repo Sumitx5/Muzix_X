@@ -1,5 +1,6 @@
 package com.sumit.muzixx.ui.screens
 
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,8 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.viewmodel.AuthViewModel
+import com.sumit.muzixx.utils.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -63,40 +66,25 @@ fun ProfileScreen(
         val totalPlaylistsCount = viewModel.playlists.size
         val totalSongsCount = viewModel.songs.size
 
-        val activeSongsHeard = when (selectedTabState) {
-            0 -> viewModel.stats.monthlySongsHeardState.intValue
-            1 -> viewModel.stats.yearlySongsHeardState.intValue
-            else -> viewModel.stats.totalSongsHeardState.intValue
-        }
-
-        val activeSeconds = when (selectedTabState) {
-            0 -> viewModel.stats.monthlyPlaySecondsState.longValue
-            1 -> viewModel.stats.yearlyPlaySecondsState.longValue
-            else -> viewModel.stats.totalPlaySecondsState.longValue
-        }
-
-        val listenHours = activeSeconds / 3600
-        val listenMinutes = (activeSeconds % 3600) / 60
-        val listenSeconds = activeSeconds % 60
-
         Scaffold(
-            modifier = modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
+            modifier = modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
-                    title = { Text(text = "Profile", color = MaterialTheme.colorScheme.onBackground, fontWeight = FontWeight.Bold) },
+                    title = { Text(text = "Profile", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
                     navigationIcon = {
                         IconButton(onClick = onBackClick) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onBackground
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.background,
+                        titleContentColor = MaterialTheme.colorScheme.onSurface
+                    )
                 )
             }
         ) { innerPadding ->
@@ -105,13 +93,13 @@ fun ProfileScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 22.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 8.dp),
+                        .padding(vertical = 12.dp, horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Start
                 ) {
@@ -119,14 +107,14 @@ fun ProfileScreen(
                         modifier = Modifier
                             .size(76.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primary),
+                            .background(accentColor.copy(alpha = 0.2f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Profile Pic",
-                            tint = MaterialTheme.colorScheme.background,
-                            modifier = Modifier.size(42.dp)
+                            tint = accentColor,
+                            modifier = Modifier.size(40.dp)
                         )
                     }
 
@@ -141,9 +129,10 @@ fun ProfileScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (currentUser != null) "@Cloud Synced Account" else "Muzix X Listener",
+                            text = if (currentUser != null) "@Cloud Synced Account" else "MuzixX Listener",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -153,16 +142,16 @@ fun ProfileScreen(
                 Button(
                     onClick = { showAuthScreen = true },
                     colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.fillMaxWidth().height(50.dp)
                 ) {
-                    Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Manage Account")
+                    Text("Manage Account", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = Color(0xFF222222), thickness = 1.dp)
+                Spacer(modifier = Modifier.height(20.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 1.dp)
                 Spacer(modifier = Modifier.height(16.dp))
 
                 SecondaryTabRow(
@@ -179,11 +168,11 @@ fun ProfileScreen(
                                 selected = isSelected,
                                 onClick = { selectedTabState = index },
                                 selectedContentColor = accentColor,
-                                unselectedContentColor = Color.Gray,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
                                 text = {
                                     Text(
                                         text = title,
-                                        fontWeight = FontWeight.SemiBold,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                                         style = MaterialTheme.typography.bodyMedium
                                     )
                                 }
@@ -191,21 +180,45 @@ fun ProfileScreen(
                         }
                     })
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
-                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                        ProfileStatCard(
-                            title = "Playlists",
-                            value = totalPlaylistsCount.toString(),
-                            modifier = Modifier.weight(1f)
-                        )
-                        ProfileStatCard(
-                            title = "Songs",
-                            value = totalSongsCount.toString(),
-                            modifier = Modifier.weight(1f)
-                        )
+                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    ProfileStatCard(
+                        title = "Playlists",
+                        value = totalPlaylistsCount.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                    ProfileStatCard(
+                        title = "Songs",
+                        value = totalSongsCount.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                AnimatedContent(
+                    targetState = selectedTabState,
+                    transitionSpec = {
+                        (fadeIn() + scaleIn(initialScale = 0.96f)).togetherWith(fadeOut())
+                    },
+                    label = "TabStatsTransition"
+                ) { targetTab ->
+                    val activeSongsHeard = when (targetTab) {
+                        0 -> viewModel.stats.monthlySongsHeardState.intValue
+                        1 -> viewModel.stats.yearlySongsHeardState.intValue
+                        else -> viewModel.stats.totalSongsHeardState.intValue
                     }
+
+                    val activeSeconds = when (targetTab) {
+                        0 -> viewModel.stats.monthlyPlaySecondsState.longValue
+                        1 -> viewModel.stats.yearlyPlaySecondsState.longValue
+                        else -> viewModel.stats.totalPlaySecondsState.longValue
+                    }
+
+                    val listenHours = activeSeconds / 3600
+                    val listenMinutes = (activeSeconds % 3600) / 60
+                    val listenSeconds = activeSeconds % 60
 
                     Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                         ProfileStatCard(
@@ -221,33 +234,36 @@ fun ProfileScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(28.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(22.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassEffect(shape = RoundedCornerShape(26.dp))
+                        .padding(20.dp)
                 ) {
                     Column(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = "Your Music Journey",
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Keep listening to build your listening stats and personalized music experience.\nNote: Restart app to See live Updates if you recently Connected the account",
-                            style = MaterialTheme.typography.bodyMedium,
+                            text = "Keep listening to build your listening stats and personalized music experience.\n\nNote: Restart app to see live updates if you recently connected your account.",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -259,28 +275,28 @@ fun ProfileStatCard(
     value: String,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        modifier = modifier,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(22.dp)
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .glassEffect(shape = RoundedCornerShape(24.dp))
+            .padding(horizontal = 12.dp, vertical = 20.dp),
+        contentAlignment = Alignment.Center
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 22.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
                 text = value,
-                style = MaterialTheme.typography.headlineSmall,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
                 textAlign = TextAlign.Center
