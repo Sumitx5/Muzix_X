@@ -6,7 +6,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CornerSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -25,6 +25,7 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
+import com.sumit.muzixx.utils.glassEffect
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -60,7 +61,6 @@ fun EqualizerPage(
     }
 
     val accentColor = MaterialTheme.colorScheme.primary
-    val surfaceColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f)
 
     var localBassBoost by remember(bassBoost) { mutableFloatStateOf(bassBoost) }
     var loudness by remember { mutableFloatStateOf(0.0f) }
@@ -68,15 +68,15 @@ fun EqualizerPage(
 
     LaunchedEffect(localBassBoost) {
         if (localBassBoost == bassBoost) return@LaunchedEffect
-
         delay(30.milliseconds)
         viewModel.setBassBoostStrength(localBassBoost)
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Equalizer", style = MaterialTheme.typography.titleLarge) },
+                title = { Text("Equalizer", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onDismiss) {
                         Icon(
@@ -94,6 +94,7 @@ fun EqualizerPage(
                         Text(
                             text = if (isEqEnabled) "ON" else "OFF",
                             style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.Bold,
                             color = if (isEqEnabled) accentColor else MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(end = 8.dp)
                         )
@@ -108,7 +109,11 @@ fun EqualizerPage(
                             )
                         )
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
         }
     ) { paddingValues ->
@@ -120,17 +125,19 @@ fun EqualizerPage(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Card(
-                shape = MaterialTheme.shapes.extraLarge.copy(all = CornerSize(28.dp)),
-                colors = CardDefaults.cardColors(containerColor = surfaceColor),
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(shape = RoundedCornerShape(28.dp))
+                    .padding(16.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column {
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         bandValues.forEach { valDb ->
                             Text(
                                 text = String.format("%+.1f", valDb),
                                 style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
                                 color = if (isEqEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
@@ -139,26 +146,28 @@ fun EqualizerPage(
                     Spacer(modifier = Modifier.height(12.dp))
 
                     Box(modifier = Modifier.fillMaxWidth().height(180.dp)) {
-                        val gridLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f)
-                        val unselectedDotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                        val gridLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        val unselectedDotColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
 
                         Canvas(
-                            modifier = Modifier.fillMaxSize().pointerInput(isEqEnabled, bandValues.size) {
-                                if (!isEqEnabled || bandValues.isEmpty()) return@pointerInput
-                                detectDragGestures { change, _ ->
-                                    change.consume()
-                                    selectedPreset = "Custom"
-                                    val colWidth = size.width / standardBands.size
-                                    val idx = (change.position.x / colWidth).toInt().coerceIn(0, standardBands.size - 1)
-                                    val pctY = (change.position.y / size.height).coerceIn(0f, 1f)
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(isEqEnabled, bandValues.size) {
+                                    if (!isEqEnabled || bandValues.isEmpty()) return@pointerInput
+                                    detectDragGestures { change, _ ->
+                                        change.consume()
+                                        selectedPreset = "Custom"
+                                        val colWidth = size.width / standardBands.size
+                                        val idx = (change.position.x / colWidth).toInt().coerceIn(0, standardBands.size - 1)
+                                        val pctY = (change.position.y / size.height).coerceIn(0f, 1f)
 
-                                    val dbTarget = 15f - (pctY * 30f)
-                                    if (idx in 0 until bandValues.size) {
-                                        bandValues[idx] = dbTarget
-                                        viewModel.setBandLevel(idx, dbTarget)
+                                        val dbTarget = 15f - (pctY * 30f)
+                                        if (idx in bandValues.indices) {
+                                            bandValues[idx] = dbTarget
+                                            viewModel.setBandLevel(idx, dbTarget)
+                                        }
                                     }
                                 }
-                            }
                         ) {
                             val stepX = size.width / (standardBands.size + 1)
                             val pts = mutableListOf<Offset>()
@@ -229,23 +238,31 @@ fun EqualizerPage(
                                 viewModel.setEqualizerPresetLive(index.toShort())
                             }
                         },
-                        label = { Text(presetName) },
+                        label = { Text(presetName, fontWeight = FontWeight.SemiBold) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = accentColor.copy(alpha = 0.25f),
-                            selectedLabelColor = accentColor
+                            selectedContainerColor = accentColor.copy(alpha = 0.2f),
+                            selectedLabelColor = accentColor,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.3f),
+                            labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = selectedPreset == presetName,
+                            borderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                            selectedBorderColor = accentColor.copy(alpha = 0.3f)
                         )
                     )
                 }
             }
+
             Row(
-                modifier = Modifier.fillMaxWidth().height(240.dp),
+                modifier = Modifier.fillMaxWidth().height(244.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 ExpressiveVerticalSliderCard(
                     title = "Bass Boost",
                     value = localBassBoost,
                     isEnabled = bassEnabled,
-                    cardBg = surfaceColor,
                     accent = accentColor,
                     onValChange = { localBassBoost = it },
                     onToggle = { viewModel.setBassBoostEnabled(it) },
@@ -255,7 +272,6 @@ fun EqualizerPage(
                     title = "Loudness",
                     value = loudness,
                     isEnabled = loudnessEnabled,
-                    cardBg = surfaceColor,
                     accent = accentColor,
                     onValChange = { loudness = it },
                     onToggle = { loudnessEnabled = it },
@@ -263,17 +279,18 @@ fun EqualizerPage(
                 )
             }
 
-            Card(
-                shape = MaterialTheme.shapes.extraLarge.copy(all = CornerSize(24.dp)),
-                colors = CardDefaults.cardColors(containerColor = surfaceColor),
-                modifier = Modifier.fillMaxWidth()
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassEffect(shape = RoundedCornerShape(24.dp))
+                    .padding(20.dp)
             ) {
                 Row(
-                    modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
-                        Text("Volume", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Volume", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                         Spacer(modifier = Modifier.height(4.dp))
                         Slider(
                             value = viewModel.currentVolume,
@@ -284,6 +301,7 @@ fun EqualizerPage(
                     Text(
                         text = "${(viewModel.currentVolume * 100).toInt()}%",
                         style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(start = 16.dp, top = 20.dp)
                     )
@@ -298,19 +316,19 @@ fun ExpressiveVerticalSliderCard(
     title: String,
     value: Float,
     isEnabled: Boolean,
-    cardBg: Color,
     accent: Color,
     onValChange: (Float) -> Unit,
     onToggle: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        shape = MaterialTheme.shapes.extraLarge.copy(all = CornerSize(24.dp)),
-        colors = CardDefaults.cardColors(containerColor = cardBg),
-        modifier = modifier.fillMaxHeight()
+    Box(
+        modifier = modifier
+            .fillMaxHeight()
+            .glassEffect(shape = RoundedCornerShape(24.dp))
+            .padding(12.dp)
     ) {
         Column(
-            modifier = Modifier.padding(12.dp).fillMaxSize(),
+            modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
@@ -324,6 +342,7 @@ fun ExpressiveVerticalSliderCard(
                 Text(
                     text = "${(value * 100).toInt()}%",
                     style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Bold,
                     color = if (isEnabled) accent else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -342,9 +361,9 @@ fun ExpressiveVerticalSliderCard(
                     colors = SliderDefaults.colors(
                         thumbColor = accent,
                         activeTrackColor = accent,
-                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f),
-                        disabledThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f),
-                        disabledActiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
+                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                        disabledThumbColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f),
+                        disabledActiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.04f)
                     ),
                     modifier = Modifier
                         .rotate(270f)
@@ -375,7 +394,7 @@ fun ExpressiveVerticalSliderCard(
                     checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = accent,
                     uncheckedThumbColor = MaterialTheme.colorScheme.outline,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
                 ),
                 modifier = Modifier.padding(top = 4.dp)
             )
