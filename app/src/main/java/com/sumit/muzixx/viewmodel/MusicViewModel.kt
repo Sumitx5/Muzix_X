@@ -748,12 +748,25 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    fun addSongToQueue(song: Song) {
+        if (playerController.selectedSong == null) {
+            val isolatedCollection = listOf(song)
+            playMusicCollection(isolatedCollection, 0)
+            return
+        }
+
+        playerController.addTrackImmediatelyNext(song)
+        currentPlaybackQueue = playerController.activePlaybackQueue
+    }
+
     fun seekTo(position: Long) {
         mediaStateHolder.updateManualSeekPosition(position)
         playerController.seekTo(position)
     }
 
-    fun togglePlayPause() = playerController.togglePlayPause()
+    fun togglePlayPause() {
+        playerController.togglePlayPause()
+    }
     fun playNext() = playerController.playNext()
     fun playPrevious() = playerController.playPrevious()
 
