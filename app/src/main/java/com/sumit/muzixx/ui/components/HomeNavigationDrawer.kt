@@ -1,5 +1,6 @@
 package com.sumit.muzixx.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -14,8 +15,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sumit.muzixx.utils.glassEffect
 
 @Composable
 fun HomeNavigationDrawer(
@@ -28,25 +31,29 @@ fun HomeNavigationDrawer(
     onListenTogetherClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
+    val context = LocalContext.current
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             ModalDrawerSheet(
                 modifier = Modifier
                     .fillMaxHeight()
-                    .fillMaxWidth(0.85f),
-                drawerContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                    .fillMaxWidth(0.86f)
+                    .padding(end = 30.dp, bottom = 8.dp)
+                    .glassEffect(shape = MaterialTheme.shapes.extraLarge),
+                drawerContainerColor = Color.Transparent,
+                drawerTonalElevation = 0.dp
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(20.dp)
+                        .padding(4.dp)
                 ) {
                     DrawerProfileItem(userName = userName, onClick = onProfileClick)
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 12.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                        modifier = Modifier.padding(vertical = 0.dp),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                     )
 
                     DrawerItem(
@@ -64,7 +71,7 @@ fun HomeNavigationDrawer(
                     DrawerItem(
                         text = "Listen Together",
                         icon = Icons.Rounded.Headphones,
-                        onClick = onListenTogetherClick
+                        onClick = { Toast.makeText(context, "Coming Soon...", Toast.LENGTH_SHORT).show() }
                     )
 
                     DrawerItem(
@@ -89,19 +96,20 @@ private fun DrawerProfileItem(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
-            .padding(12.dp),
+            .padding(2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             imageVector = Icons.Rounded.AccountCircle,
             contentDescription = "User profile icon",
             modifier = Modifier.size(48.dp),
-            tint = MaterialTheme.colorScheme.onSurface
+            tint = MaterialTheme.colorScheme.primary
         )
         Spacer(Modifier.width(14.dp))
         Column {
             Text(
                 text = userName,
+                style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
@@ -124,7 +132,8 @@ private fun DrawerItem(
         label = {
             Text(
                 text = text,
-                fontWeight = FontWeight.Medium,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
             )
         },
@@ -133,8 +142,9 @@ private fun DrawerItem(
         onClick = onClick,
         colors = NavigationDrawerItemDefaults.colors(
             unselectedContainerColor = Color.Transparent,
-            selectedContainerColor = MaterialTheme.colorScheme.surfaceVariant
+            selectedContainerColor = Color.Transparent
         ),
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier.padding(vertical = 4.dp)
     )
 }
