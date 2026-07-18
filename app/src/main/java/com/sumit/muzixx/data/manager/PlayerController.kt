@@ -67,6 +67,7 @@ class PlayerController(
     }
 
     private var volumeObserver: ContentObserver? = null
+    private var songResolutionJob: Job? = null
 
     fun initMediaController(context: Context, onControllerReady: () -> Unit = {}) {
         this.contextRef = context.applicationContext
@@ -237,9 +238,15 @@ class PlayerController(
 
     private fun resolveAndPlayTrackOnDemand(song: Song, engineIndex: Int) {
         val controller = mediaController ?: return
-        scope.launch {
-            val resolvedUri = resolveSongUri(song)
-            if (resolvedUri.isNotBlank()) {
+
+        songResolutionJob?.cancel()
+
+        songResolutionJob = scope.launch {
+            try {
+                val resolvedUri = resolveSongUri(song)
+
+                ensureActive()
+
                 withContext(Dispatchers.Main) {
                     if (engineIndex in activePlaybackQueue.indices && activePlaybackQueue[engineIndex].id == song.id) {
                         activePlaybackQueue[engineIndex] = song.copy(uri = resolvedUri)
@@ -254,6 +261,8 @@ class PlayerController(
                         }
                     }
                 }
+            } catch (_: CancellationException) {
+                Log.d(TAG, "On-demand resolution task safely cancelled for song: ${song.title}")
             }
         }
     }
@@ -286,6 +295,7 @@ class PlayerController(
             Log.e(TAG, "MediaController framework not initialized yet.")
             return
         }
+        songResolutionJob?.cancel()
 
         activePlaybackQueue.clear()
         activePlaybackQueue.addAll(songList)
@@ -294,45 +304,51 @@ class PlayerController(
 
         val targetedSong = activePlaybackQueue[activePlaylistIndex]
 
-        scope.launch {
-            Log.d(TAG, "Resolving URL path for initial track: ${targetedSong.title}")
-            val resolvedUri = withContext(Dispatchers.IO) { resolveSongUri(targetedSong) }
+        songResolutionJob = scope.launch {
+            try {
+                Log.d(TAG, "Resolving URL path for initial track: ${targetedSong.title}")
+                val resolvedUri = withContext(Dispatchers.IO) { resolveSongUri(targetedSong) }
+                ensureActive()
 
-            withContext(Dispatchers.Main) {
-                val finalUri = resolvedUri.ifBlank { targetedSong.uri }
+                withContext(Dispatchers.Main) {
+                    val finalUri = resolvedUri.ifBlank { targetedSong.uri }
 
-                if (activePlaylistIndex in activePlaybackQueue.indices) {
-                    activePlaybackQueue[activePlaylistIndex] = targetedSong.copy(uri = finalUri)
-                }
+                    if (activePlaylistIndex in activePlaybackQueue.indices) {
+                        activePlaybackQueue[activePlaylistIndex] = targetedSong.copy(uri = finalUri)
+                    }
 
-                val mediaItems = activePlaybackQueue.mapIndexed { index, song ->
-                    val streamUrl = if (index == activePlaylistIndex) finalUri else song.uri
-                    buildMediaItem(song, streamUrl)
-                }
+                    val mediaItems = activePlaybackQueue.mapIndexed { index, song ->
+                        val streamUrl = if (index == activePlaylistIndex) finalUri else song.uri
+                        buildMediaItem(song, streamUrl)
+                    }
 
-                controller.stop()
-                controller.setMediaItems(mediaItems, activePlaylistIndex, 0L)
-                controller.prepare()
+                    controller.stop()
+                    controller.setMediaItems(mediaItems, activePlaylistIndex, 0L)
+                    controller.prepare()
 
-                if (playWhenReady) {
-                    controller.play()
-                    Log.d(TAG, "ExoPlayer playback initialized successfully.")
-                } else {
-                    controller.pause()
-                    Log.d(TAG, "ExoPlayer track hydrated silently for persistence setup.")
-                }
+                    if (playWhenReady) {
+                        controller.play()
+                        Log.d(TAG, "ExoPlayer playback initialized successfully.")
+                    } else {
+                        controller.pause()
+                        Log.d(TAG, "ExoPlayer track hydrated silently for persistence setup.")
+                    }
 
-                val nextIndex = activePlaylistIndex + 1
-                if (nextIndex in activePlaybackQueue.indices) {
-                    val nextSong = activePlaybackQueue[nextIndex]
-                    if (nextSong.uri.isBlank()) {
-                        val nextUri = withContext(Dispatchers.IO) { resolveSongUri(nextSong) }
-                        if (nextUri.isNotBlank()) {
+                    val nextIndex = activePlaylistIndex + 1
+                    if (nextIndex in activePlaybackQueue.indices) {
+                        val nextSong = activePlaybackQueue[nextIndex]
+                        if (nextSong.uri.isBlank()) {
+                            val nextUri = withContext(Dispatchers.IO) { resolveSongUri(nextSong) }
+
+                            ensureActive()
+
                             activePlaybackQueue[nextIndex] = nextSong.copy(uri = nextUri)
                             controller.replaceMediaItem(nextIndex, buildMediaItem(activePlaybackQueue[nextIndex], nextUri))
                         }
                     }
                 }
+            } catch (_: CancellationException) {
+                Log.d(TAG, "Queue worker task safely aborted.")
             }
         }
     }
@@ -347,6 +363,24 @@ class PlayerController(
 
         val newMediaItems = suggestedSongs.map { buildMediaItem(it, it.uri) }
         controller.addMediaItems(oldSize, newMediaItems)
+    }
+
+    fun addTrackImmediatelyNext(song: Song) {
+        val controller = mediaController ?: return
+
+        val targetIndex = if (activePlaybackQueue.isNotEmpty()) {
+            activePlaylistIndex + 1
+        } else {
+            0
+        }
+
+        activePlaybackQueue.add(targetIndex, song)
+        onQueueUpdated(activePlaybackQueue.toList())
+
+        val mediaItem = buildMediaItem(song, song.uri)
+        controller.addMediaItem(targetIndex, mediaItem)
+
+        Log.d("PlayerController", "Injected track immediately next at queue index: $targetIndex")
     }
 
     fun setSkipSilenceOnPlayer(enabled: Boolean) {
@@ -516,6 +550,7 @@ class PlayerController(
     }
 
     fun release() {
+        songResolutionJob?.cancel()
         mediaController?.removeListener(playerListener)
         contextRef?.let { releaseVolumeBridge(it) }
         mediaController = null
