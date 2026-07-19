@@ -2,6 +2,7 @@ package com.sumit.muzixx.ui.screens
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +18,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
+import com.sumit.muzixx.utils.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,13 +28,23 @@ fun IntegrationScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Integrations", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        "Integrations",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Go Back")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Go Back"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -42,56 +54,62 @@ fun IntegrationScreen(
                 )
             )
         },
-        containerColor = MaterialTheme.colorScheme.background,
+        containerColor = MaterialTheme.colorScheme.surface,
         modifier = modifier.fillMaxSize()
     ) { innerPadding ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .background(color = MaterialTheme.colorScheme.background)
         ) {
-            item {
-                Text(
-                    text = "Import your external playlists directly into MuzixX seamlessly.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
-                )
-            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Import your external playlists directly into MuzixX seamlessly.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp)
+                    )
+                }
 
-            item {
-                IntegrationCard(
-                    title = "Import Spotify Playlist",
-                    description = "Sync your favorite tracks from public Spotify links.",
-                    brandColor = Color(0xFF1DB954),
-                    onClick = {
-                        Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
+                item {
+                    IntegrationCard(
+                        title = "Import Spotify Playlist",
+                        description = "Sync your favorite tracks from public Spotify links.",
+                        brandColor = Color(0xFF1DB954),
+                        onClick = {
+                            Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
 
-            item {
-                IntegrationCard(
-                    title = "Import YouTube Music Playlist",
-                    description = "Bring over your specialized streaming queues.",
-                    brandColor = Color(0xFFFF0000),
-                    onClick = {
-                        Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
-                    }
-                )
-            }
+                item {
+                    IntegrationCard(
+                        title = "Import YouTube Music Playlist",
+                        description = "Bring over your specialized streaming queues.",
+                        brandColor = Color(0xFFFF0000),
+                        onClick = {
+                            Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
 
-            item {
-                IntegrationCard(
-                    title = "Import YouTube Playlist",
-                    description = "Convert video collections directly to standard audio formats.",
-                    brandColor = Color(0xFFE62117),
-                    onClick = {
-                        Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
-                    }
-                )
+                item {
+                    IntegrationCard(
+                        title = "Import YouTube Playlist",
+                        description = "Convert video collections directly to standard audio formats.",
+                        brandColor = Color(0xFFE62117),
+                        onClick = {
+                            Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
+                        }
+                    )
+                }
             }
         }
     }
@@ -104,18 +122,16 @@ fun IntegrationCard(
     brandColor: Color,
     onClick: () -> Unit
 ) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+    val cardShape = RoundedCornerShape(16.dp)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassEffect(shape = cardShape)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(

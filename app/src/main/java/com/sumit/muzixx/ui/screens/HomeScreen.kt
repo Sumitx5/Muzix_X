@@ -1,6 +1,7 @@
 package com.sumit.muzixx.ui.screens
 
 import android.content.Context
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
@@ -33,7 +35,10 @@ import com.sumit.muzixx.data.Song
 import com.sumit.muzixx.ui.components.HomeNavigationDrawer
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import com.sumit.muzixx.viewmodel.MusicViewModel
+import com.sumit.muzixx.utils.glassEffect
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,6 +71,18 @@ fun HomeScreen(
     val hindiHits = viewModel.saavnHminiHits
     val local = viewModel.songs
     val selectedSong = viewModel.selectedSong
+
+    val recentlyHeard = remember(viewModel.recentlyPlayedSongs) {
+        viewModel.recentlyPlayedSongs
+    }
+
+    val (isLastDayOfMonth, currentMonthName) = remember {
+        val calendar = Calendar.getInstance()
+        val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
+        val lastDay = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
+        val monthLabel = calendar.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale.getDefault()) ?: "Month"
+        Pair(currentDay == lastDay, monthLabel)
+    }
 
     LaunchedEffect(Unit) {
         if (viewModel.saavnPlaylistSearchResults.isEmpty()) {
@@ -130,12 +147,12 @@ fun HomeScreen(
 
                     Column(modifier = Modifier.padding(start = 4.dp)) {
                         Text(
-                            text = "Hello, $currentUserName 👋",
+                            text = "Hello, $currentUserName",
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "Discover Music",
+                            text = "Home",
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onBackground
@@ -150,6 +167,50 @@ fun HomeScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
+                    // SECTION: MONTHLY RECAP (Visible conditionally only on the last day of the month)
+                    if (isLastDayOfMonth) {
+                        item(key = "monthly_recap_section") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp)
+                                    .glassEffect(RoundedCornerShape(20.dp))
+                                    .clickable {
+                                        Toast.makeText(context, "$currentMonthName Recap is coming soon!", Toast.LENGTH_SHORT).show()
+                                    }
+                                    .padding(16.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.CalendarMonth,
+                                        contentDescription = "Recap Icon",
+                                        tint = accentColor,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = "Your $currentMonthName Recap is Ready!",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(
+                                            text = "Take a look back at your listening habits, top tracks, and statistics this past month.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // SECTION: TRENDING TODAY
                     item(key = "trending_songs") {
                         SongSection(
                             title = "Trending Today",
@@ -157,6 +218,27 @@ fun HomeScreen(
                             isLoading = viewModel.isTrendingLoading,
                             onClick = { index -> viewModel.playSaavnSong(trending, index) }
                         )
+                    }
+
+                    // SECTION: RECENTLY HEARD SONGS (Mounted below Trending Today)
+                    if (recentlyHeard.isNotEmpty()) {
+                        item(key = "recently_heard_songs") {
+                            SongSection(
+                                title = "Recently Heard",
+                                songs = recentlyHeard,
+                                isLoading = false,
+                                onClick = { index ->
+                                    val targetTrack = recentlyHeard[index]
+                                    if (targetTrack.id.startsWith("yt_")) {
+                                        viewModel.playYouTubeSong(recentlyHeard, index)
+                                    } else if (targetTrack.id.all { it.isDigit() } || targetTrack.isStreaming) {
+                                        viewModel.playSaavnSong(recentlyHeard, index)
+                                    } else {
+                                        viewModel.playLocalSong(recentlyHeard, index)
+                                    }
+                                }
+                            )
+                        }
                     }
 
                     item(key = "new_releases") {

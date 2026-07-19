@@ -25,6 +25,8 @@ import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import com.sumit.muzixx.data.network.YouTubeMusicScraper
 import com.sumit.muzixx.utils.NetworkUtils.isWifiConnected
 import kotlinx.coroutines.*
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MusicViewModel : ViewModel() {
 
@@ -71,6 +73,7 @@ class MusicViewModel : ViewModel() {
                 sharedPreferences?.edit { putLong("last_song_playback_position", 0L) }
                 if (::stats.isInitialized) stats.incrementSongsHeardCount()
                 saveLastPlayedSong(switchedSong)
+                addToRecentlyPlayed(switchedSong) // Real-time hook update
                 handleQueueLookaheadAutoplay()
             },
             onQueueUpdated = { updatedList ->
@@ -115,6 +118,9 @@ class MusicViewModel : ViewModel() {
     var currentCloudPlaylistName by mutableStateOf<String?>(null)
     val currentCloudPlaylistSongs = mutableStateListOf<Song>()
     val searchHistory = mutableStateListOf<String>()
+
+    // RECENTLY HEARD PERSISTENT DATA STATE
+    val recentlyPlayedSongs = mutableStateListOf<Song>()
 
     // Loading States
     var isLocalSongsLoading by mutableStateOf(false)
@@ -163,6 +169,7 @@ class MusicViewModel : ViewModel() {
         this.applicationContext = context.applicationContext
         sharedPreferences = context.getSharedPreferences("muzix_prefs", Context.MODE_PRIVATE)
         loadSearchHistory()
+        loadRecentlyPlayedFromStorage()
 
         try {
             val json = sharedPreferences?.getString("custom_playlists", null)
@@ -314,6 +321,72 @@ class MusicViewModel : ViewModel() {
             id = id, title = title, artist = artist, uri = uri, artUri = artUri,
             duration = duration, isStreaming = isStreaming, folderName = folderName, type = type
         )
+    }
+
+    private fun addToRecentlyPlayed(song: Song) {
+        if (song.id.isBlank()) return
+        val matchIndex = recentlyPlayedSongs.indexOfFirst { it.id == song.id }
+        if (matchIndex != -1) {
+            recentlyPlayedSongs.removeAt(matchIndex)
+        }
+        recentlyPlayedSongs.add(0, song)
+        if (recentlyPlayedSongs.size > 20) {
+            recentlyPlayedSongs.removeAt(recentlyPlayedSongs.lastIndex)
+        }
+
+        saveRecentlyPlayedToStorage()
+    }
+
+    private fun saveRecentlyPlayedToStorage() {
+        val jsonArray = JSONArray()
+        for (song in recentlyPlayedSongs) {
+            val jsonObject = JSONObject().apply {
+                put("id", song.id)
+                put("title", song.title)
+                put("artist", song.artist)
+                put("uri", song.uri)
+                put("artUri", song.artUri ?: "")
+                put("duration", song.duration)
+                put("isStreaming", song.isStreaming)
+                put("folderName", song.folderName)
+                put("type", song.type)
+            }
+            jsonArray.put(jsonObject)
+        }
+        sharedPreferences?.edit {
+            putString("recently_heard_songs_json", jsonArray.toString())
+        }
+    }
+
+    private fun loadRecentlyPlayedFromStorage() {
+        val rawJson = sharedPreferences?.getString("recently_heard_songs_json", null) ?: return
+        try {
+            val jsonArray = JSONArray(rawJson)
+            val tempHistoryList = mutableListOf<Song>()
+            for (i in 0 until jsonArray.length()) {
+                val jsonObject = jsonArray.getJSONObject(i)
+                val artString = jsonObject.optString("artUri", "")
+                val resolvedArt = artString.ifBlank { null }
+
+                tempHistoryList.add(
+                    Song(
+                        id = jsonObject.getString("id"),
+                        title = jsonObject.getString("title"),
+                        artist = jsonObject.getString("artist"),
+                        uri = jsonObject.getString("uri"),
+                        artUri = resolvedArt,
+                        duration = jsonObject.getLong("duration"),
+                        isStreaming = jsonObject.getBoolean("isStreaming"),
+                        folderName = jsonObject.getString("folderName"),
+                        type = jsonObject.getString("type")
+                    )
+                )
+            }
+            recentlyPlayedSongs.clear()
+            recentlyPlayedSongs.addAll(tempHistoryList)
+        } catch (e: Exception) {
+            Log.e("RECENTLY_PLAYED_LOAD", "Corrupt history layer map parse index error", e)
+        }
     }
 
     private fun savePlaylistsToStorage() {
@@ -613,6 +686,7 @@ class MusicViewModel : ViewModel() {
             }
         }
     }
+
     //Eqz Settings
     fun setEqualizerPresetLive(presetIndex: Short) {
         if (isSettingsInitialized()) {

@@ -5,23 +5,20 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     id("com.google.gms.google-services")
+    id("com.google.protobuf") version "0.9.4"
 }
 
 android {
     namespace = "com.sumit.muzixx"
-    //noinspection GradleDependency
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.sumit.muzixx"
         minSdk = 24
-        //noinspection OldTargetApi
         targetSdk = 36
         versionCode = 6
         versionName = "1.3.3"
-
         multiDexEnabled = true
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -36,7 +33,6 @@ android {
     }
     compileOptions {
         isCoreLibraryDesugaringEnabled = true
-
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -52,8 +48,24 @@ android {
     }
 }
 
+// ⚙️ Configure the protobuf compiler plugin natively
+configure<com.google.protobuf.gradle.ProtobufExtension> {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.25.1"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("java") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}
+
 dependencies {
-    // Jetpack Compose Ecosystem (Clean references from your new catalog)
+    // Jetpack Compose Ecosystem
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.ui)
@@ -73,50 +85,34 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("androidx.credentials:credentials:1.2.2")
     implementation("androidx.credentials:credentials-play-services-auth:1.2.2")
-
-// This one specifically fixes GetGoogleIdTokenOption and GoogleIdTokenCredential!
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     // Data Storage & Utilities
-    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.datastore:datastore-core:1.1.1")
-    //noinspection UseTomlInstead
     implementation("androidx.palette:palette-ktx:1.0.0")
-    //noinspection UseTomlInstead
     implementation("com.google.code.gson:gson:2.14.0")
-    //noinspection UseTomlInstead
     implementation("io.coil-kt:coil-compose:2.7.0")
 
-    // Networking & APIs
-    //noinspection UseTomlInstead,GradleDependency
+    // Protobuf Runtime Engines
+    implementation("com.google.protobuf:protobuf-javalite:3.25.1")
+
+    // Networking APIs
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    //noinspection UseTomlInstead,GradleDependency
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-client-core:2.3.11")
-    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-client-okhttp:2.3.11")
-    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-client-content-negotiation:2.3.11")
-    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("io.ktor:ktor-serialization-kotlinx-json:2.3.11")
-    //noinspection UseTomlInstead,NewerVersionAvailable
     implementation("com.github.teamnewpipe:NewPipeExtractor:0.26.3")
 
-    // Media & Playback Engine
+    // Media Playback
     val media3Version = "1.4.1"
-    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.media3:media3-exoplayer:$media3Version")
-    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.media3:media3-common:$media3Version")
-    //noinspection UseTomlInstead,GradleDependency
     implementation("androidx.media3:media3-session:$media3Version")
-    //noinspection GradleDependency,UseTomlInstead
     implementation("androidx.media3:media3-datasource-okhttp:$media3Version")
 
-    //noinspection UseTomlInstead, GradleDependency
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.0.4")
 
     // Testing Suite
@@ -128,6 +124,7 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
 configurations.all {
     resolutionStrategy {
         eachDependency {
@@ -136,4 +133,11 @@ configurations.all {
             }
         }
     }
+}
+
+// 🧩 Link generated classes directly into IDE model to fix red-line markers permanently
+android.applicationVariants.all {
+    addJavaSourceFoldersToModel(
+        file("${project.layout.buildDirectory.get().asFile}/generated/source/proto/$name/java")
+    )
 }

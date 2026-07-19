@@ -10,6 +10,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.FeaturedPlayList
@@ -27,6 +30,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +42,7 @@ import com.sumit.muzixx.R
 import com.sumit.muzixx.data.Playlist
 import com.sumit.muzixx.data.Song
 import com.sumit.muzixx.viewmodel.MusicViewModel
+import com.sumit.muzixx.utils.glassEffect
 
 @Composable
 fun LibraryLoadingOverlay() {
@@ -68,6 +74,7 @@ fun PlaylistDetailView(
     onSongActionClick: (Song) -> Unit,
     onBackClick: () -> Unit
 ) {
+    val accentColor = MaterialTheme.colorScheme.primary
 
     BackHandler {
         viewModel.selectedPlaylist = null
@@ -76,128 +83,154 @@ fun PlaylistDetailView(
 
     val playlistSongs = currentPlaylist.songs
     val isSystemPlaylist = currentPlaylist.id == "local_songs" || currentPlaylist.id.startsWith("folder_")
-    Column(modifier = Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = {
-                viewModel.selectedPlaylist = null
-                onBackClick()
-            }) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.onBackground
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent),
+                    endY = 600f
                 )
-            }
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = currentPlaylist.name,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-                color = MaterialTheme.colorScheme.onSurface
             )
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = { onPlaybackRequest(playlistSongs.toList().shuffled(), 0) },
-                enabled = playlistSongs.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                ),
-                shape = RoundedCornerShape(12.dp),
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(6.dp))
+                IconButton(onClick = {
+                    viewModel.selectedPlaylist = null
+                    onBackClick()
+                }) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Back",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Shuffle",
-                    style = MaterialTheme.typography.labelLarge,
+                    text = currentPlaylist.name,
+                    style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    maxLines = 1
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                    color = MaterialTheme.colorScheme.onSurface
                 )
             }
 
-            Button(
-                onClick = { onPlaybackRequest(playlistSongs.toList(), 0) },
-                enabled = playlistSongs.isNotEmpty(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-                ),
-                shape = RoundedCornerShape(12.dp),
+            Row(
                 modifier = Modifier
-                    .weight(1f)
-                    .height(48.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Rounded.PlayArrow, "Play", modifier = Modifier.size(22.dp))
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Play All",
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            }
-
-            if (!isSystemPlaylist) {
-                FilledTonalButton(
-                    onClick = { onEditRequest(currentPlaylist.id, currentPlaylist.name) },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                Button(
+                    onClick = { onPlaybackRequest(playlistSongs.toList().shuffled(), 0) },
+                    enabled = playlistSongs.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
                     ),
-                    modifier = Modifier.size(48.dp),
-                    contentPadding = PaddingValues(0.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
                 ) {
-                    Icon(Icons.Rounded.Edit, "Rename", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Shuffle",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+
+                Button(
+                    onClick = { onPlaybackRequest(playlistSongs.toList(), 0) },
+                    enabled = playlistSongs.isNotEmpty(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                ) {
+                    Icon(Icons.Rounded.PlayArrow, "PlayAll", modifier = Modifier.size(22.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Play All",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+
+                if (!isSystemPlaylist) {
+                    FilledTonalButton(
+                        onClick = { onEditRequest(currentPlaylist.id, currentPlaylist.name) },
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        ),
+                        modifier = Modifier.size(48.dp),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Edit,
+                            contentDescription = "Rename",
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
-        }
-        HorizontalDivider(modifier = Modifier.padding(top = 12.dp), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-    }
 
-    if (playlistSongs.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("This playlist is empty.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = bottomPadding),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            itemsIndexed(playlistSongs, key = { index, song -> "${song.id}_${index}" }) { index, song ->
-                LibrarySongItem(
-                    song = song,
-                    isSelected = viewModel.selectedSong?.id == song.id,
-                    currentPlaylistId = currentPlaylist.id,
-                    onActionClick = { onSongActionClick(song) },
-                    onRemoveClick = {
-                        viewModel.removeSongFromPlaylist(currentPlaylist.id, song)
-                        viewModel.selectedPlaylist = viewModel.playlists.find { it.id == currentPlaylist.id }
-                    },
-                    onClick = { onPlaybackRequest(playlistSongs.toList(), index) }
-                )
+            HorizontalDivider(
+                modifier = Modifier.padding(top = 12.dp),
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+            )
+
+            if (playlistSongs.isEmpty()) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text(
+                        text = "This playlist is empty.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = bottomPadding),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(playlistSongs, key = { index, song -> "${song.id}_${index}" }) { index, song ->
+                        LibrarySongItem(
+                            song = song,
+                            isSelected = viewModel.selectedSong?.id == song.id,
+                            currentPlaylistId = currentPlaylist.id,
+                            onActionClick = { onSongActionClick(song) },
+                            onRemoveClick = {
+                                viewModel.removeSongFromPlaylist(currentPlaylist.id, song)
+                                viewModel.selectedPlaylist = viewModel.playlists.find { it.id == currentPlaylist.id }
+                            },
+                            onClick = { onPlaybackRequest(playlistSongs.toList(), index) }
+                        )
+                    }
+                }
             }
         }
     }
@@ -212,88 +245,112 @@ fun LibrarySongItem(
     onRemoveClick: () -> Unit = {},
     onClick: () -> Unit
 ) {
-    val textColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+    val animatedTextColor by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(durationMillis = 250),
+        label = "SongItemTextColor"
+    )
     var showSongMenu by remember { mutableStateOf(false) }
     val isSystemPlaylist = currentPlaylistId == "local_songs" || currentPlaylistId.startsWith("folder_")
 
-    Row(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(
+                if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+                else Color.Transparent
+            )
             .clickable { onClick() }
-            .padding(vertical = 8.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 8.dp, horizontal = 12.dp)
     ) {
-        AsyncImage(
-            model = song.artUri,
-            contentDescription = "Song Album Art",
-            modifier = Modifier
-                .size(52.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            error = painterResource(id = R.drawable.default_music),
-            placeholder = painterResource(id = R.drawable.default_music),
-            contentScale = ContentScale.Crop
-        )
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = song.title,
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyLarge,
-                color = textColor,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                overflow = TextOverflow.Ellipsis
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = song.artUri,
+                contentDescription = "Song Album Art",
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                error = painterResource(id = R.drawable.default_music),
+                placeholder = painterResource(id = R.drawable.default_music),
+                contentScale = ContentScale.Crop
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = song.artist,
-                maxLines = 1,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
 
-        Box {
-            IconButton(onClick = { showSongMenu = true }) {
-                Icon(
-                    imageVector = Icons.Rounded.MoreVert,
-                    contentDescription = "Options Menu",
-                    tint = MaterialTheme.colorScheme.onSurface
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = song.title,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = animatedTextColor,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = song.artist,
+                    maxLines = 1,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
-            DropdownMenu(
-                expanded = showSongMenu,
-                onDismissRequest = { showSongMenu = false },
-                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                    onClick = {
-                        showSongMenu = false
-                        onActionClick()
-                    },
-                    leadingIcon = { Icon(Icons.AutoMirrored.Rounded.PlaylistAdd, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)},
-                    colors = MenuDefaults.itemColors()
-                )
+            Box {
+                IconButton(onClick = { showSongMenu = true }) {
+                    Icon(
+                        imageVector = Icons.Rounded.MoreVert,
+                        contentDescription = "Options Menu",
+                        tint = MaterialTheme.colorScheme.onSurface
+                    )
+                }
 
-                if (!isSystemPlaylist) {
+                DropdownMenu(
+                    expanded = showSongMenu,
+                    onDismissRequest = { showSongMenu = false },
+                    modifier = Modifier
+                        .glassEffect(RoundedCornerShape(16.dp))
+                        .background(Color.Transparent)
+                ) {
                     DropdownMenuItem(
-                        text = { Text("Remove from this playlist", color = MaterialTheme.colorScheme.error) },
+                        text = { Text("Add to Playlist") },
                         onClick = {
                             showSongMenu = false
-                            onRemoveClick()
+                            onActionClick()
                         },
-                        leadingIcon = { Icon(Icons.Rounded.PlaylistRemove, contentDescription = null, tint = MaterialTheme.colorScheme.error)}
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                                contentDescription = null
+                            )
+                        }
                     )
+
+                    if (!isSystemPlaylist) {
+                        DropdownMenuItem(
+                            text = { Text("Remove from this playlist", color = MaterialTheme.colorScheme.error) },
+                            onClick = {
+                                showSongMenu = false
+                                onRemoveClick()
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Rounded.PlaylistRemove,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
                 }
             }
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 0.5.dp)
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
@@ -309,86 +366,142 @@ fun PlaylistRootListView(
     onRenameTrigger: () -> Unit,
     onDeleteTrigger: (String) -> Unit
 ) {
-    TopAppBar(
-        title = { Text("Library", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold) },
-        actions = {
-            IconButton(onClick = onCreateClick) {
-                Icon(Icons.Rounded.Add, "Create Playlist", tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        },
-        colors = TopAppBarDefaults.topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.background,
-            titleContentColor = MaterialTheme.colorScheme.onSurface,
-            actionIconContentColor = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    )
+    val accentColor = MaterialTheme.colorScheme.primary
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 16.dp, top = 0.dp, end = 16.dp, bottom = bottomPadding)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent),
+                    endY = 600f
+                )
+            )
     ) {
-        items(playlists, key = { it.id }) { playlist ->
-            val isSystemPlaylist = playlist.id == "local_songs" || playlist.id.startsWith("folder_")
-
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = { onPlaylistSelect(playlist) },
-                            onLongClick = { onPlaylistLongClick(playlist) }
+        Column(modifier = Modifier.fillMaxSize()) {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Library",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                actions = {
+                    IconButton(
+                        onClick = onCreateClick,
+                        modifier = Modifier
+                            .glassEffect(CircleShape)
+                            .size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Add,
+                            contentDescription = "Create Playlist"
                         )
-                        .padding(vertical = 16.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.AutoMirrored.Rounded.FeaturedPlayList, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Column {
-                            Text(
-                                text = playlist.name,
-                                style = MaterialTheme.typography.titleLarge,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "${playlist.songs.size} songs",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            DropdownMenu(
-                                expanded = playlistPendingActionsMenu?.id == playlist.id,
-                                onDismissRequest = onMenuDismiss,
-                                modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant).padding(start = 10.dp)
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                                    onClick = onRenameTrigger,
-                                    leadingIcon = { Icon(Icons.Rounded.DriveFileRenameOutline, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)}
-                                )
-                                DropdownMenuItem(
-                                    text = { Text("Delete Playlist", color = MaterialTheme.colorScheme.error) },
-                                    onClick = { onDeleteTrigger(playlist.id) },
-                                    leadingIcon = { Icon(Icons.Rounded.FolderDelete, null, tint = MaterialTheme.colorScheme.error)}
-                                )
-                            }
-                        }
                     }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
+            )
 
-                    if (!isSystemPlaylist) {
-                        IconButton(onClick = { onPlaylistLongClick(playlist) }) {
-                            Icon(
-                                imageVector = Icons.Rounded.MoreVert,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = bottomPadding),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(playlists, key = { it.id }) { playlist ->
+                    val isSystemPlaylist = playlist.id == "local_songs" || playlist.id.startsWith("folder_")
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .glassEffect(RoundedCornerShape(16.dp))
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .combinedClickable(
+                                    onClick = { onPlaylistSelect(playlist) },
+                                    onLongClick = { onPlaylistLongClick(playlist) }
+                                )
+                                .padding(vertical = 16.dp, horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Rounded.FeaturedPlayList,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column {
+                                    Text(
+                                        text = playlist.name,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "${playlist.songs.size} songs",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+
+                                    DropdownMenu(
+                                        expanded = playlistPendingActionsMenu?.id == playlist.id,
+                                        onDismissRequest = onMenuDismiss,
+                                        modifier = Modifier
+                                            .glassEffect(RoundedCornerShape(16.dp))
+                                            .background(Color.Transparent)
+                                    ) {
+                                        DropdownMenuItem(
+                                            text = { Text("Rename Playlist") },
+                                            onClick = onRenameTrigger,
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.DriveFileRenameOutline,
+                                                    contentDescription = null
+                                                )
+                                            }
+                                        )
+                                        DropdownMenuItem(
+                                            text = { Text("Delete Playlist", color = MaterialTheme.colorScheme.error) },
+                                            onClick = { onDeleteTrigger(playlist.id) },
+                                            leadingIcon = {
+                                                Icon(
+                                                    imageVector = Icons.Rounded.FolderDelete,
+                                                    contentDescription = null,
+                                                    tint = MaterialTheme.colorScheme.error
+                                                )
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+
+                            if (!isSystemPlaylist) {
+                                IconButton(onClick = { onPlaylistLongClick(playlist) }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.MoreVert,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 0.5.dp)
         }
     }
 }
@@ -400,13 +513,24 @@ fun PlaylistSelectorDialog(
     onPlaylistChosen: (String) -> Unit
 ) {
     val customPlaylistsOnly = playlists.filter { it.id != "local_songs" && !it.id.startsWith("folder_") }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        title = { Text("Add to Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+        containerColor = Color.Transparent,
+        modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
+        title = {
+            Text(
+                text = "Add to Playlist",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             if (customPlaylistsOnly.isEmpty()) {
-                Text("Please create a custom playlist first using the '+' button.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    text = "Please create a custom playlist first using the '+' button.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
                 LazyColumn(modifier = Modifier.heightIn(max = 250.dp)) {
                     items(customPlaylistsOnly, key = { it.id }) { targetPlaylist ->
@@ -426,7 +550,9 @@ fun PlaylistSelectorDialog(
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close", color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onDismiss) {
+                Text(text = "Close", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
         }
     )
 }
@@ -440,8 +566,15 @@ fun RenamePlaylistDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        title = { Text("Rename Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+        containerColor = Color.Transparent,
+        modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
+        title = {
+            Text(
+                text = "Rename Playlist",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             OutlinedTextField(
                 value = nameInput,
@@ -458,10 +591,14 @@ fun RenamePlaylistDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onSave) { Text("Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onSave) {
+                Text(text = "Save", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel", color = MaterialTheme.colorScheme.primary)
+            }
         }
     )
 }
@@ -475,8 +612,15 @@ fun CreatePlaylistDialog(
 ) {
     AlertDialog(
         onDismissRequest = { onDismiss() },
-        containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        title = { Text("New Playlist", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+        containerColor = Color.Transparent,
+        modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
+        title = {
+            Text(
+                text = "New Playlist",
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.Bold
+            )
+        },
         text = {
             OutlinedTextField(
                 value = nameInput,
@@ -493,10 +637,14 @@ fun CreatePlaylistDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onCreate) { Text("Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
+            TextButton(onClick = onCreate) {
+                Text(text = "Create", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+            }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = MaterialTheme.colorScheme.primary) }
+            TextButton(onClick = onDismiss) {
+                Text(text = "Cancel", color = MaterialTheme.colorScheme.primary)
+            }
         }
     )
 }

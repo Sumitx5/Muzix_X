@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import androidx.core.net.toUri
+import com.sumit.muzixx.utils.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,6 +38,7 @@ fun SettingsScreen(
 ) {
     val context = LocalContext.current
     val backGroundColor = MaterialTheme.colorScheme.background
+
 
     var showThemeDialog by remember { mutableStateOf(false) }
 
@@ -65,161 +67,192 @@ fun SettingsScreen(
         viewModel.calculateCurrentCacheSize(context)
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(backGroundColor)
-    ) {
-        TopAppBar(
-            title = {
-                Text(
-                    text = "Settings",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            },
-            navigationIcon = {
-                IconButton(onClick = onBackClick) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.onSurface
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Settings",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
                     )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = MaterialTheme.colorScheme.surface,
-                titleContentColor = MaterialTheme.colorScheme.onSurface
+                },
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onSurface
+                )
             )
-        )
-
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 32.dp)
+        },
+        containerColor = backGroundColor,
+        modifier = modifier.fillMaxSize()
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(color = backGroundColor)
         ) {
-            item { SettingsHeader(title = "Content & Display") }
-            item {
-                SettingsSwitchItem(
-                    title = "Show Floating Lyrics",
-                    subtitle = "Display synchronized lyrics on the full player deck when available",
-                    icon = Icons.Default.LibraryMusic,
-                    checked = showLyricsOnPlayer,
-                    onCheckedChange = { viewModel.settings.updateShowLyrics(it) }
-                )
-            }
-            item {
-                SettingsClickableItem(
-                    title = "Theme Options",
-                    subtitle = "Active Accent: $currentTheme",
-                    icon = Icons.Default.Palette
-                ) {
-                    showThemeDialog = true
-                }
-            }
-
-            //SECTION 2: MEDIA QUALITY SETTINGS
-            item { SettingsHeader(title = "Media Quality Settings") }
-            item {
-                SettingsSwitchItem(
-                    title = "Stream via Wi-Fi Only",
-                    subtitle = "Restrict data consumption by blocking online streaming on cellular networks",
-                    icon = Icons.Default.Wifi,
-                    checked = streamOverWifiOnly,
-                    onCheckedChange = { viewModel.settings.updateStreamWifiOnly(it) }
-                )
-            }
-            item {
-                SettingsSwitchItem(
-                    title = "Download over Wi-Fi Only",
-                    subtitle = "Save local cached tracks exclusively when connected to stable Wi-Fi",
-                    icon = Icons.Default.Download,
-                    checked = downloadOverWifiOnly,
-                    onCheckedChange = { viewModel.settings.updateDownloadWifiOnly(it) }
-                )
-            }
-            item {
-                val qualitySubtitle = when {
-                    currentAudioQuality.contains("320") -> "Extreme (320kbps high-fidelity layout standard)"
-                    currentAudioQuality.contains("160") -> "Standard (160kbps balanced audio stream setup)"
-                    currentAudioQuality.contains("96") -> "Data Saver (96kbps low data consumption setup)"
-                    else -> "Standard ($currentAudioQuality standard configuration layout)"
-                }
-
-                SettingsClickableItem(
-                    title = "Audio Streaming Quality",
-                    subtitle = qualitySubtitle,
-                    icon = Icons.Default.HighQuality
-                ) {
-                    showQualityDialog = true
-                }
-            }
-
-            //SECTION 3: ADVANCED AUDIO ENGINE
-            item { SettingsHeader(title = "Audio Engine (Advanced)") }
-            item {
-                SettingsSwitchItem(
-                    title = "Audio Normalization",
-                    subtitle = "Adjust volume levels across all tracks to match uniformly",
-                    icon = Icons.Default.Equalizer,
-                    checked = normalizeAudio,
-                    onCheckedChange = { viewModel.updateNormalizeAudioLive(it) }
-                )
-            }
-            item {
-                SettingsSwitchItem(
-                    title = "Skip Silence",
-                    subtitle = "Automatically skip dead air/silent parts at the end or start of files",
-                    icon = Icons.Default.SkipNext,
-                    checked = skipSilence,
-                    onCheckedChange = { viewModel.updateSkipSilenceLive(it) }
-                )
-            }
-
-            //SECTION 4: STORAGE & CACHE
-            item { SettingsHeader(title = "Storage & Cache") }
-            item {
-                SettingsClickableItem(
-                    title = "Clear Audio Cache",
-                    subtitle = "Free up storage by clearing temporarily streamed image arts and audio buffers (${viewModel.cacheSizeText})",
-                    icon = Icons.Default.Delete
-                ) {
-                    viewModel.clearAudioCache(context)
-                }
-            }
-
-            //SECTION 5: SYSTEM AND UPDATES
-            item { SettingsHeader(title = "System") }
-            item {
-                SettingsSwitchItem(
-                    title = "Check Updates on Start",
-                    subtitle = "Automatically check GitHub deployment branches when launching MuzixX",
-                    icon = Icons.Default.CloudDownload,
-                    checked = viewModel.settings.checkUpdatesOnStart,
-                    onCheckedChange = { viewModel.settings.updateCheckUpdatesOnStart(it) }
-                )
-            }
-            item {
-                SettingsClickableItem(
-                    title = "Check for Updates",
-                    subtitle = "Verify build references with server deployment branch logs",
-                    icon = Icons.Default.Refresh
-                ) {
-                    viewModel.triggerUpdateCheck(context)
-                }
-            }
-
-            //SECTION 6: ABOUT
-            item { SettingsHeader(title = "About") }
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentPadding = PaddingValues(bottom = 32.dp)
+            ) {
+                item { SettingsHeader(title = "Content & Display") }
+                item {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .glassEffect(RoundedCornerShape(16.dp))
+                    ) {
+                        SettingsSwitchItem(
+                            title = "Show Floating Lyrics",
+                            subtitle = "Display synchronized lyrics on the full player deck when available",
+                            icon = Icons.Default.LibraryMusic,
+                            checked = showLyricsOnPlayer,
+                            onCheckedChange = { viewModel.settings.updateShowLyrics(it) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        SettingsClickableItem(
+                            title = "Theme Options",
+                            subtitle = "Active Accent: $currentTheme",
+                            icon = Icons.Default.Palette
+                        ) {
+                            showThemeDialog = true
+                        }
+                    }
+                }
+
+                item { SettingsHeader(title = "Media Quality Settings") }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .glassEffect(RoundedCornerShape(16.dp))
+                    ) {
+                        SettingsSwitchItem(
+                            title = "Stream via Wi-Fi Only",
+                            subtitle = "Restrict data consumption by blocking online streaming on cellular networks",
+                            icon = Icons.Default.Wifi,
+                            checked = streamOverWifiOnly,
+                            onCheckedChange = { viewModel.settings.updateStreamWifiOnly(it) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        SettingsSwitchItem(
+                            title = "Download over Wi-Fi Only",
+                            subtitle = "Save local cached tracks exclusively when connected to stable Wi-Fi",
+                            icon = Icons.Default.Download,
+                            checked = downloadOverWifiOnly,
+                            onCheckedChange = { viewModel.settings.updateDownloadWifiOnly(it) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+
+                        val qualitySubtitle = when {
+                            currentAudioQuality.contains("320") -> "Extreme (320kbps high-fidelity layout standard)"
+                            currentAudioQuality.contains("160") -> "Standard (160kbps balanced audio stream setup)"
+                            currentAudioQuality.contains("96") -> "Data Saver (96kbps low data consumption setup)"
+                            else -> "Standard ($currentAudioQuality standard configuration layout)"
+                        }
+
+                        SettingsClickableItem(
+                            title = "Audio Streaming Quality",
+                            subtitle = qualitySubtitle,
+                            icon = Icons.Default.HighQuality
+                        ) {
+                            showQualityDialog = true
+                        }
+                    }
+                }
+
+                item { SettingsHeader(title = "Audio Engine (Advanced)") }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .glassEffect(RoundedCornerShape(16.dp))
+                    ) {
+                        SettingsSwitchItem(
+                            title = "Audio Normalization",
+                            subtitle = "Adjust volume levels across all tracks to match uniformly",
+                            icon = Icons.Default.Equalizer,
+                            checked = normalizeAudio,
+                            onCheckedChange = { viewModel.updateNormalizeAudioLive(it) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        SettingsSwitchItem(
+                            title = "Skip Silence",
+                            subtitle = "Automatically skip dead air/silent parts at the end or start of files",
+                            icon = Icons.Default.SkipNext,
+                            checked = skipSilence,
+                            onCheckedChange = { viewModel.updateSkipSilenceLive(it) }
+                        )
+                    }
+                }
+
+                item { SettingsHeader(title = "Storage & Cache") }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .glassEffect(RoundedCornerShape(16.dp))
+                    ) {
+                        SettingsClickableItem(
+                            title = "Clear Audio Cache",
+                            subtitle = "Free up storage by clearing temporarily streamed image arts and audio buffers (${viewModel.cacheSizeText})",
+                            icon = Icons.Default.Delete
+                        ) {
+                            viewModel.clearAudioCache(context)
+                        }
+                    }
+                }
+
+                item { SettingsHeader(title = "System") }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .glassEffect(RoundedCornerShape(16.dp))
+                    ) {
+                        SettingsSwitchItem(
+                            title = "Check Updates on Start",
+                            subtitle = "Automatically check GitHub deployment branches when launching MuzixX",
+                            icon = Icons.Default.CloudDownload,
+                            checked = viewModel.settings.checkUpdatesOnStart,
+                            onCheckedChange = { viewModel.settings.updateCheckUpdatesOnStart(it) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+                        SettingsClickableItem(
+                            title = "Check for Updates",
+                            subtitle = "Verify build references with server deployment branch logs",
+                            icon = Icons.Default.Refresh
+                        ) {
+                            viewModel.triggerUpdateCheck(context)
+                        }
+                    }
+                }
+
+                item { SettingsHeader(title = "About") }
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                            .glassEffect(RoundedCornerShape(16.dp))
+                            .padding(16.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
@@ -236,15 +269,13 @@ fun SettingsScreen(
                                 text = "MuzixX Player",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
                         HorizontalDivider(
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(
-                                alpha = 0.12f
-                            )
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                         )
                         Spacer(modifier = Modifier.height(12.dp))
 
@@ -268,7 +299,7 @@ fun SettingsScreen(
                             AboutRowItem(
                                 label = "Developer Architecture",
                                 value = "Sumit Singh",
-                                valueColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                valueColor = MaterialTheme.colorScheme.primary
                             )
                         }
                         AboutRowItem(
@@ -288,14 +319,18 @@ fun SettingsScreen(
             }
         }
     }
+
     // Theme-Box
     if (showThemeDialog) {
         AlertDialog(
             onDismissRequest = { showThemeDialog = false },
+            shape = RoundedCornerShape(24.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text(
                     text = "Select Accent Color",
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
@@ -314,7 +349,7 @@ fun SettingsScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(56.dp)
+                                .height(48.dp)
                                 .selectable(
                                     selected = (theme == currentTheme),
                                     onClick = {
@@ -322,8 +357,7 @@ fun SettingsScreen(
                                         showThemeDialog = false
                                     },
                                     role = Role.RadioButton
-                                )
-                                .padding(horizontal = 16.dp),
+                                ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
@@ -338,21 +372,22 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(onClick = { showThemeDialog = false }) {
-                    Text("Cancel")
+                    Text("Cancel", color = MaterialTheme.colorScheme.primary)
                 }
             }
         )
     }
 
-    //DYNAMIC AUDIO BITRATE SELECTION DIALOG
+    // DYNAMIC AUDIO BITRATE SELECTION DIALOG
     if (showQualityDialog) {
         AlertDialog(
             onDismissRequest = { showQualityDialog = false },
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            shape = RoundedCornerShape(24.dp),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
             title = {
                 Text(
                     text = "Streaming Quality",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleMedium
                 )
@@ -366,7 +401,7 @@ fun SettingsScreen(
                                 viewModel.settings.updateAudioQuality("96kbps")
                                 showQualityDialog = false
                             }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
@@ -382,12 +417,13 @@ fun SettingsScreen(
                                 )
                             )
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = "Data Saver (96kbps)",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyLarge
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = "Aggressive data compression saving layout",
@@ -404,7 +440,7 @@ fun SettingsScreen(
                                 viewModel.settings.updateAudioQuality("160kbps")
                                 showQualityDialog = false
                             }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
@@ -420,12 +456,13 @@ fun SettingsScreen(
                                 )
                             )
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = "Balanced (160kbps)",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyLarge
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = "Standard balanced stream performance quality",
@@ -442,7 +479,7 @@ fun SettingsScreen(
                                 viewModel.settings.updateAudioQuality("320kbps")
                                 showQualityDialog = false
                             }
-                            .padding(vertical = 12.dp),
+                            .padding(vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
@@ -458,12 +495,13 @@ fun SettingsScreen(
                                 )
                             )
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
                                 text = "Extreme High (320kbps)",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyLarge
+                                color = MaterialTheme.colorScheme.onSurface,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = FontWeight.SemiBold
                             )
                             Text(
                                 text = "Crystal clear high-fidelity audio stream",
@@ -486,7 +524,6 @@ fun SettingsScreen(
     }
 }
 
-// SUB-ITEMS
 @Composable
 private fun SettingsHeader(title: String) {
     Text(
@@ -496,7 +533,7 @@ private fun SettingsHeader(title: String) {
         color = MaterialTheme.colorScheme.primary,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, top = 24.dp, end = 16.dp, bottom = 8.dp)
+            .padding(start = 24.dp, top = 24.dp, end = 24.dp, bottom = 8.dp)
     )
 }
 
@@ -512,7 +549,7 @@ private fun SettingsSwitchItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 12.dp, horizontal = 16.dp),
+            .padding(vertical = 16.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -532,7 +569,7 @@ private fun SettingsSwitchItem(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -562,7 +599,7 @@ private fun SettingsClickableItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 12.dp, horizontal = 16.dp),
+            .padding(vertical = 16.dp, horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -582,7 +619,7 @@ private fun SettingsClickableItem(
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
@@ -595,7 +632,7 @@ private fun AboutRowItem(label: String, value: String, valueColor: Color) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

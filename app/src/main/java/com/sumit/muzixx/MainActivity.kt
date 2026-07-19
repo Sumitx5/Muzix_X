@@ -2,9 +2,11 @@ package com.sumit.muzixx
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -12,11 +14,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
@@ -33,23 +34,17 @@ import com.sumit.muzixx.data.fetchLocalSongs
 import com.sumit.muzixx.ui.components.MiniPlayer
 import com.sumit.muzixx.ui.components.MuzixBottomBar
 import com.sumit.muzixx.ui.components.UpdateDialog
-import com.sumit.muzixx.ui.screens.FullPlayerScreen
-import com.sumit.muzixx.ui.screens.HomeScreen
-import com.sumit.muzixx.ui.screens.LibraryScreen
-import com.sumit.muzixx.ui.screens.ProfileScreen
-import com.sumit.muzixx.ui.screens.SearchScreen
+import com.sumit.muzixx.ui.screens.*
 import com.sumit.muzixx.ui.theme.MuzixXTheme
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.data.network.UpdateChecker
 import org.schabi.newpipe.extractor.NewPipe
 import okhttp3.OkHttpClient
 import com.sumit.muzixx.data.network.MuzixDownloader
-import com.sumit.muzixx.ui.screens.SettingsScreen
 import com.sumit.muzixx.data.Song
-import com.sumit.muzixx.ui.screens.IntegrationScreen
-import com.sumit.muzixx.ui.screens.ListenTogether
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.milliseconds
@@ -59,20 +54,23 @@ class MainActivity : ComponentActivity() {
     private val musicViewModel: MusicViewModel by viewModels()
     private val authViewModel: AuthViewModel by viewModels()
     private var defaultCrashHandler: Thread.UncaughtExceptionHandler? = null
+    private var isProcessingDeepLink = false
 
     @SuppressLint("NewApi")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupCrashHandler()
-
-        intent?.data?.let { uri ->
-            handleIncomingDeepLink(uri)
-        }
+        unlockHighRefreshRate()
+        intent?.data?.let { uri -> handleIncomingDeepLink(uri) }
 
         musicViewModel.initSettings(applicationContext)
         musicViewModel.initStatsManager(applicationContext)
-        musicViewModel.initMediaController(applicationContext){
-            musicViewModel.initStorage(applicationContext)
+        musicViewModel.initMediaController(applicationContext) {
+            if (!isProcessingDeepLink) {
+                musicViewModel.initStorage(applicationContext)
+            } else {
+                musicViewModel.loadSearchHistory()
+            }
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -107,13 +105,10 @@ class MainActivity : ComponentActivity() {
                     DisposableEffect(isLightMode) {
                         val window = (context as android.app.Activity).window
                         val insetsController = androidx.core.view.WindowCompat.getInsetsController(window, view)
-
                         window.statusBarColor = android.graphics.Color.TRANSPARENT
                         window.navigationBarColor = android.graphics.Color.TRANSPARENT
-
                         insetsController.isAppearanceLightStatusBars = isLightMode
                         insetsController.isAppearanceLightNavigationBars = isLightMode
-
                         onDispose {}
                     }
                 }
@@ -137,9 +132,7 @@ class MainActivity : ComponentActivity() {
 
                 val storagePermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
-                ) { isGranted ->
-                    if (isGranted) loadLocalTracks()
-                }
+                ) { isGranted -> if (isGranted) loadLocalTracks() }
 
                 val notificationPermissionLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.RequestPermission()
@@ -168,11 +161,7 @@ class MainActivity : ComponentActivity() {
                         Manifest.permission.READ_EXTERNAL_STORAGE
                     }
 
-                    val hasPermission = ContextCompat.checkSelfPermission(
-                        context, requiredStoragePermission
-                    ) == PackageManager.PERMISSION_GRANTED
-
-                    if (hasPermission) {
+                    if (ContextCompat.checkSelfPermission(context, requiredStoragePermission) == PackageManager.PERMISSION_GRANTED) {
                         loadLocalTracks()
                     } else {
                         storagePermissionLauncher.launch(requiredStoragePermission)
@@ -197,39 +186,57 @@ class MainActivity : ComponentActivity() {
                                 )
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
-                                when (currentScreen) {
-                                    "Home" -> HomeScreen(
-                                        viewModel = musicViewModel,
-                                        authViewModel = authViewModel,
-                                        context = context,
-                                        onProfileClick = { currentScreen = "Profile" },
-                                        onSettingsClick = { currentScreen = "Settings" },
-                                        onIntegrationClick = { currentScreen = "Integration" },
-                                        onListenTogetherClick = { currentScreen = "ListenTogether" }
-                                    )
-                                    "Search" -> SearchScreen(viewModel = musicViewModel)
-                                    "Library" -> LibraryScreen(viewModel = musicViewModel)
-                                    "Profile" -> ProfileScreen(
-                                        viewModel = musicViewModel,
-                                        authViewModel = authViewModel,
-                                        onBackClick = { currentScreen = "Home" },
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    "Settings" -> SettingsScreen(
-                                        viewModel = musicViewModel,
-                                        onBackClick = { currentScreen = "Home" }
-                                    )
-                                    "Integration" -> IntegrationScreen(
-                                        viewModel = musicViewModel,
-                                        onBackClick = { currentScreen = "Home"},
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                    "ListenTogether" -> ListenTogether(
-                                        onBackClick = { currentScreen = "Home"},
-                                        modifier = Modifier.fillMaxSize()
-                                    )
+                                AnimatedContent(
+                                    targetState = currentScreen,
+                                    transitionSpec = {
+                                        val expressiveSpring = spring<androidx.compose.ui.unit.IntOffset>(
+                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                            stiffness = Spring.StiffnessMediumLow
+                                        )
+                                        val fadeSpec = tween<Float>(durationMillis = 300)
+
+                                        if (targetState == "Home" || initialState == "Profile" || initialState == "Settings") {
+                                            (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { -it }) + fadeIn(fadeSpec)) togetherWith
+                                                    (slideOutHorizontally(animationSpec = expressiveSpring, targetOffsetX = { it }) + fadeOut(fadeSpec))
+                                        } else {
+                                            (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { it }) + fadeIn(fadeSpec)) togetherWith
+                                                    (slideOutHorizontally(animationSpec = expressiveSpring, targetOffsetX = { -it }) + fadeOut(fadeSpec))
+                                        }
+                                    },
+                                    label = "CoreScreenNavigation"
+                                ) { screen ->
+                                    when (screen) {
+                                        "Home" -> HomeScreen(
+                                            viewModel = musicViewModel,
+                                            authViewModel = authViewModel,
+                                            context = context,
+                                            onProfileClick = { currentScreen = "Profile" },
+                                            onSettingsClick = { currentScreen = "Settings" },
+                                            onIntegrationClick = { currentScreen = "Integration" },
+                                            onListenTogetherClick = { currentScreen = "ListenTogether" }
+                                        )
+                                        "Search" -> SearchScreen(viewModel = musicViewModel)
+                                        "Library" -> LibraryScreen(viewModel = musicViewModel)
+                                        "Profile" -> ProfileScreen(
+                                            viewModel = musicViewModel,
+                                            authViewModel = authViewModel,
+                                            onBackClick = { currentScreen = "Home" },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        "Settings" -> SettingsScreen(
+                                            viewModel = musicViewModel,
+                                            onBackClick = { currentScreen = "Home" }
+                                        )
+                                        "Integration" -> IntegrationScreen(
+                                            viewModel = musicViewModel,
+                                            onBackClick = { currentScreen = "Home" },
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        "ListenTogether" -> {}
+                                    }
                                 }
                             }
+
                             if (!isFullScreenView) {
                                 Column(
                                     modifier = Modifier
@@ -238,34 +245,48 @@ class MainActivity : ComponentActivity() {
                                         .background(Color.Transparent)
                                 ) {
                                     if (selectedSong != null) {
-                                        MiniPlayer(
-                                            song = selectedSong,
-                                            isPlaying = musicViewModel.isPlaying,
-                                            onPlayPause = { musicViewModel.togglePlayPause() },
-                                            onMiniPlayerClick = { showFullPlayer = true },
-                                            modifier = Modifier
-                                                .align(Alignment.CenterHorizontally)
-                                                .padding(bottom = 8.dp)
-                                        )
+                                        Box(modifier = Modifier.align(Alignment.CenterHorizontally)
+                                        ) {
+                                            MiniPlayer(
+                                                song = selectedSong,
+                                                isPlaying = musicViewModel.isPlaying,
+                                                onPlayPause = { musicViewModel.togglePlayPause() },
+                                                onMiniPlayerClick = { showFullPlayer = true },
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
                                     }
 
-                                    MuzixBottomBar(
-                                        currentScreen = currentScreen,
-                                        onTabSelected = { currentScreen = it }
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(top = 8.dp)
+                                    ) {
+                                        MuzixBottomBar(
+                                            currentScreen = currentScreen,
+                                            onTabSelected = { currentScreen = it }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
+
                     AnimatedVisibility(
                         visible = showFullPlayer,
-                        enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-                        exit = fadeOut() + slideOutVertically(targetOffsetY = { it })
+                        enter = slideInVertically(
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow),
+                            initialOffsetY = { it }
+                        ) + fadeIn(),
+                        exit = slideOutVertically(
+                            animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
+                            targetOffsetY = { it }
+                        ) + fadeOut()
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(Color.Transparent)
+                                .background(MaterialTheme.colorScheme.background.copy(alpha = 0.92f))
                         ) {
                             FullPlayerScreen(
                                 viewModel = musicViewModel,
@@ -278,8 +299,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun unlockHighRefreshRate() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val window = this.window
+            val params = window.attributes
+            val display = window.decorView.display
+
+            if (display != null) {
+                val modes = display.supportedModes
+                val highestMode = modes.maxByOrNull { it.refreshRate }
+
+                if (highestMode != null) {
+                    params.preferredDisplayModeId = highestMode.modeId
+                    window.attributes = params
+                    android.util.Log.d("Muzix Performance", "Refresh Rate: ${highestMode.refreshRate}Hz")
+                }
+            }
+        } else {
+            @Suppress("DEPRECATION")
+            window.addFlags(WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED)
+        }
+    }
+
     override fun onStop() {
         super.onStop()
+        backupStatistics()
+    }
+
+    private fun setupCrashHandler() {
+        defaultCrashHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            backupStatistics()
+            defaultCrashHandler?.uncaughtException(thread, throwable)
+        }
+    }
+
+    private fun backupStatistics() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 authViewModel.saveDataOnExitOrCrash(
@@ -293,52 +348,23 @@ class MainActivity : ComponentActivity() {
                     yearlySec = musicViewModel.stats.yearlyPlaySecondsState.longValue
                 )
             } catch (e: Exception) {
-                android.util.Log.e("MuzixXLifecycle", "Standard exit backup failed", e)
+                android.util.Log.e("Muzix Stats", "Data backup exception recorded", e)
             }
         }
     }
 
-    private fun setupCrashHandler() {
-        defaultCrashHandler = Thread.getDefaultUncaughtExceptionHandler()
-
-        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            try {
-                android.util.Log.w("MuzixXCrash", "Critical exception intercepted! Backing up statistics absolutely...")
-
-                authViewModel.saveDataOnExitOrCrash(
-                    playlistsCount = musicViewModel.playlists.size,
-                    songsCount = musicViewModel.songs.size,
-                    totalHeard = musicViewModel.stats.totalSongsHeardState.intValue,
-                    monthlyHeard = musicViewModel.stats.monthlySongsHeardState.intValue,
-                    yearlyHeard = musicViewModel.stats.yearlySongsHeardState.intValue,
-                    totalSec = musicViewModel.stats.totalPlaySecondsState.longValue,
-                    monthlySec = musicViewModel.stats.monthlyPlaySecondsState.longValue,
-                    yearlySec = musicViewModel.stats.yearlyPlaySecondsState.longValue
-                )
-            } catch (e: Exception) {
-                android.util.Log.e("MuzixXCrash", "Failed to preserve engine stats during crash pipeline", e)
-            }
-
-            defaultCrashHandler?.uncaughtException(thread, throwable)
-        }
-    }
-
-    override fun onNewIntent(intent: android.content.Intent) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.data?.let { uri ->
-            handleIncomingDeepLink(uri)
-        }
+        intent.data?.let { uri -> handleIncomingDeepLink(uri) }
     }
 
     private fun handleIncomingDeepLink(uri: android.net.Uri) {
         if ((uri.scheme == "muzixx" || uri.scheme == "https") && uri.pathContainsShare()) {
             val payload = uri.getQueryParameter("p")
-
             if (!payload.isNullOrBlank()) {
                 try {
                     val decodedBytes = android.util.Base64.decode(payload, android.util.Base64.URL_SAFE)
                     val jsonString = String(decodedBytes, Charsets.UTF_8)
-
                     val jsonObject = org.json.JSONObject(jsonString)
                     val songId = jsonObject.getString("i")
                     val title = jsonObject.optString("t", "Unknown Track")
@@ -346,33 +372,22 @@ class MainActivity : ComponentActivity() {
                     val rawArt = jsonObject.optString("r", "")
 
                     if (songId.isNotBlank()) {
-                        val isYoutube = songId.startsWith("yt_")
+                        isProcessingDeepLink = true
 
+                        val isYoutube = songId.startsWith("yt_")
                         val reconstructedArtUri = when {
-                            isYoutube -> {
-                                val ytId = songId.substringAfter("yt_")
-                                "https://img.youtube.com/vi/$ytId/mqdefault.jpg"
-                            }
-                            rawArt.isNotBlank() && !rawArt.startsWith("http") -> {
-                                "https://c.saavncdn.com/$rawArt"
-                            }
+                            isYoutube -> "https://img.youtube.com/vi/${songId.substringAfter("yt_")}/mqdefault.jpg"
+                            rawArt.isNotBlank() && !rawArt.startsWith("http") -> "https://c.saavncdn.com/$rawArt"
                             else -> rawArt
                         }
 
                         val sharedSong = Song(
-                            id = songId,
-                            title = title,
-                            artist = artist,
-                            uri = "",
-                            artUri = reconstructedArtUri,
-                            duration = 0,
-                            isStreaming = true,
-                            folderName = "",
-                            type = if (isYoutube) "yt" else "saavn"
+                            id = songId, title = title, artist = artist, uri = "",
+                            artUri = reconstructedArtUri, duration = 0, isStreaming = true,
+                            folderName = "", type = if (isYoutube) "yt" else "saavn"
                         )
-
                         lifecycleScope.launch {
-                            kotlinx.coroutines.delay(600.milliseconds)
+                            delay(400.milliseconds)
                             musicViewModel.playMusicCollection(listOf(sharedSong), 0)
                         }
                     }
@@ -383,15 +398,8 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun android.net.Uri.pathContainsShare(): Boolean {
-        return this.host == "share" || this.path?.contains("share") == true
-    }
-
-    override fun onPause() {
-        super.onPause()
-        musicViewModel.saveCurrentPlaybackPosition()
-    }
-
+    private fun android.net.Uri.pathContainsShare(): Boolean = this.host == "share" || this.path?.contains("share") == true
+    override fun onPause() { super.onPause(); musicViewModel.saveCurrentPlaybackPosition() }
     override fun onDestroy() {
         musicViewModel.saveCurrentPlaybackPosition()
         super.onDestroy()
