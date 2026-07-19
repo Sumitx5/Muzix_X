@@ -4,6 +4,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.widget.Toast
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -34,6 +35,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -45,7 +47,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.toColorInt
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -58,6 +59,7 @@ import com.sumit.muzixx.data.model.RepeatMode
 import com.sumit.muzixx.ui.components.EqualizerPage
 import com.sumit.muzixx.ui.components.PlaylistSelectorContent
 import com.sumit.muzixx.utils.formatTime
+import com.sumit.muzixx.utils.glassEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,19 +74,28 @@ fun FullPlayerScreen(
     val context = LocalContext.current
     val song = viewModel.selectedSong
     val repeatMode = viewModel.currentRepeatMode
-    val accentColor = MaterialTheme.colorScheme.primary
-    var showEqualizer by remember { mutableStateOf(false) }
-    val currentSong = viewModel.selectedSong
 
-    val defaultAccent = remember { Color(0xFF230305) }
+    // Theme Bindings
+    val accentColor = MaterialTheme.colorScheme.primary
+    val defaultAccent = MaterialTheme.colorScheme.surfaceContainerHighest
     var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
-    //Color Accent Art Handle
+
     val animatedAccentColor by animateColorAsState(
         targetValue = dynamicAccentColor,
         animationSpec = tween(durationMillis = 600),
         label = "DynamicThemeAccent"
     )
-    //Playlist Handle
+
+    // Animated Scale Trigger (Play/Pause)
+    val playPauseScale by animateFloatAsState(
+        targetValue = if (viewModel.isPlaying) 1.0f else 0.94f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
+        label = "AlbumArtScale"
+    )
+
+    var showEqualizer by remember { mutableStateOf(false) }
+    val currentSong = viewModel.selectedSong
+
     val userCreatedPlaylists by remember {
         derivedStateOf {
             viewModel.playlists.filter { playlist ->
@@ -111,9 +122,9 @@ fun FullPlayerScreen(
                         bitmap?.let { bmp ->
                             val palette = Palette.from(bmp).generate()
                             val rgb = palette.getDarkVibrantColor(
-                                palette.getDominantColor("#230305".toColorInt())
+                                palette.getDominantColor(defaultAccent.hashCode())
                             )
-                            dynamicAccentColor = Color(rgb).copy(alpha = 0.2f)
+                            dynamicAccentColor = Color(rgb)
                         }
                     }
                 } catch (_: Exception) {
@@ -134,11 +145,11 @@ fun FullPlayerScreen(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showQueueSheet by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
-    var navigateToAboutSong by remember {mutableStateOf(false)}
+    var navigateToAboutSong by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     var showPlaylistDialog by remember { mutableStateOf(false) }
 
-    val customLightGrey = remember { Color(0xFFB3B3B3) }
+    val customLightGrey = MaterialTheme.colorScheme.onSurfaceVariant
 
     var rawOffsetY by remember { mutableFloatStateOf(0f) }
     var isGestureActive by remember { mutableStateOf(false) }
@@ -182,15 +193,15 @@ fun FullPlayerScreen(
                     )
                 }
             }
-            .background(Color(0xFF080808))
+            .background(MaterialTheme.colorScheme.surface)
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        animatedAccentColor.copy(alpha = 0.70f),
                         animatedAccentColor.copy(alpha = 0.45f),
+                        animatedAccentColor.copy(alpha = 0.15f),
                         Color.Transparent
                     ),
-                    endY = 1400f
+                    endY = 1600f
                 )
             )
     ) {
@@ -203,16 +214,16 @@ fun FullPlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            //TOP DISMISS HANDLE
+            // TOP DISMISS HANDLE
             Box(
                 modifier = Modifier
                     .padding(top = 4.dp, bottom = 12.dp)
                     .size(width = 40.dp, height = 4.dp)
                     .clip(RoundedCornerShape(100.dp))
-                    .background(Color.White.copy(alpha = 0.25f))
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
             )
 
-            //ALBUM ART
+            // ALBUM ART
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -223,6 +234,7 @@ fun FullPlayerScreen(
                     modifier = Modifier
                         .fillMaxWidth(0.88f)
                         .aspectRatio(1f)
+                        .scale(playPauseScale)
                 ) {
                     AsyncImage(
                         model = song?.artUri,
@@ -230,45 +242,45 @@ fun FullPlayerScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .shadow(
-                                elevation = 32.dp,
+                                elevation = 24.dp,
                                 shape = RoundedCornerShape(24.dp),
                                 clip = false,
-                                ambientColor = animatedAccentColor.copy(alpha = 0.4f),
-                                spotColor = animatedAccentColor.copy(alpha = 0.6f)
+                                ambientColor = animatedAccentColor.copy(alpha = 0.3f),
+                                spotColor = animatedAccentColor.copy(alpha = 0.5f)
                             )
                             .clip(RoundedCornerShape(24.dp))
-                            .background(Color(0xFF141414)),
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
                         error = painterResource(id = R.drawable.default_music),
                         placeholder = painterResource(id = R.drawable.default_music),
                         contentScale = ContentScale.Crop
                     )
 
+                    // Information
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
-                            .padding(4.dp)
+                            .padding(8.dp)
                             .wrapContentSize()
                     ) {
                         IconButton(
                             onClick = { showOptionsMenu = true },
                             modifier = Modifier
-                                .background(
-                                    color = Color.Transparent,
-                                    shape = CircleShape
-                                )
+                                .glassEffect(CircleShape)
+                                .size(40.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Info,
                                 contentDescription = "Song Information Options Menu",
-                                tint = Color.White
+                                tint = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
                         DropdownMenu(
                             expanded = showOptionsMenu,
                             onDismissRequest = { showOptionsMenu = false },
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                            modifier = Modifier
+                                .glassEffect(RoundedCornerShape(6.dp))
+                                .background(Color.Transparent)
                         ) {
                             DropdownMenuItem(
                                 text = { Text("About Song", fontWeight = FontWeight.Medium) },
@@ -276,16 +288,30 @@ fun FullPlayerScreen(
                                     showOptionsMenu = false
                                     navigateToAboutSong = true
                                 },
-                                leadingIcon = { Icon(Icons.Rounded.Info, contentDescription = null)}
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.Info,
+                                        contentDescription = null
+                                    )
+                                }
                             )
 
                             DropdownMenuItem(
                                 text = { Text("Lyrics", fontWeight = FontWeight.Medium) },
                                 onClick = {
                                     showOptionsMenu = false
-                                    Toast.makeText(context, "Lyrics are Unavailable", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(
+                                        context,
+                                        "Lyrics are Unavailable",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
                                 },
-                                leadingIcon = { Icon(Icons.Rounded.Lyrics, contentDescription = null)}
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.Lyrics,
+                                        contentDescription = null
+                                    )
+                                }
                             )
 
                             DropdownMenuItem(
@@ -294,7 +320,12 @@ fun FullPlayerScreen(
                                     showOptionsMenu = false
                                     showEqualizer = true
                                 },
-                                leadingIcon = { Icon(Icons.Rounded.Equalizer, contentDescription = null)}
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.Equalizer,
+                                        contentDescription = null
+                                    )
+                                }
                             )
 
                             DropdownMenuItem(
@@ -305,7 +336,12 @@ fun FullPlayerScreen(
                                         showPlaylistDialog = true
                                     }
                                 },
-                                leadingIcon = { Icon(Icons.Rounded.LibraryAdd, contentDescription = null)}
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Rounded.LibraryAdd,
+                                        contentDescription = null
+                                    )
+                                }
                             )
 
                             if (currentSong?.type == "yt" || currentSong?.type == "saavn") {
@@ -321,12 +357,6 @@ fun FullPlayerScreen(
                                                     viewModel.settings
                                                 )
                                             }
-                                        } else if (song == null) {
-                                            Toast.makeText(
-                                                context,
-                                                "No active track loaded to download",
-                                                Toast.LENGTH_SHORT
-                                            ).show()
                                         }
                                     },
                                     leadingIcon = {
@@ -336,40 +366,48 @@ fun FullPlayerScreen(
                                         )
                                     }
                                 )
-                            }
 
-                            if (currentSong?.type == "yt" || currentSong?.type == "saavn") {
                                 DropdownMenuItem(
                                     text = { Text("Share", fontWeight = FontWeight.Medium) },
                                     onClick = {
                                         showOptionsMenu = false
                                         currentSong.let { song ->
-                                            val shortArt = if (song.type == "yt") {
-                                                ""
-                                            } else {
-                                                song.artUri?.substringAfter("c.saavncdn.com/", song.artUri)
-                                                    ?: ""
-                                            }
-
-                                            val compactData = """{"i":"${song.id}","t":"${song.title}","a":"${song.artist}","r":"$shortArt"}"""
-
+                                            val shortArt =
+                                                if (song.type == "yt") "" else song.artUri?.substringAfter(
+                                                    "c.saavncdn.com/",
+                                                    song.artUri
+                                                ) ?: ""
+                                            val compactData =
+                                                """{"i":"${song.id}","t":"${song.title}","a":"${song.artist}","r":"$shortArt"}"""
                                             val encodedPayload = android.util.Base64.encodeToString(
                                                 compactData.toByteArray(Charsets.UTF_8),
                                                 android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
                                             )
-
-                                            val shareUrl = "https://muzixx1.github.io/MuzixX/share?p=$encodedPayload"
-
-                                            val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(android.content.Intent.EXTRA_SUBJECT, "Check out this track!")
-                                                putExtra(android.content.Intent.EXTRA_TEXT, "🎵 Now playing *${song.title}* on MuzixX:\n\n$shareUrl")
-                                            }
-
-                                            context.startActivity(android.content.Intent.createChooser(shareIntent, "Share Track Via"))
+                                            val shareUrl =
+                                                "https://muzixx1.github.io/MuzixX/share?p=$encodedPayload"
+                                            val shareIntent =
+                                                android.content.Intent(android.content.Intent.ACTION_SEND)
+                                                    .apply {
+                                                        type = "text/plain"
+                                                        putExtra(
+                                                            android.content.Intent.EXTRA_TEXT,
+                                                            "🎵 Now playing *${song.title}* on MuzixX:\n\n$shareUrl"
+                                                        )
+                                                    }
+                                            context.startActivity(
+                                                android.content.Intent.createChooser(
+                                                    shareIntent,
+                                                    "Share Track Via"
+                                                )
+                                            )
                                         }
                                     },
-                                    leadingIcon = { Icon(Icons.Rounded.Share, contentDescription = "Share Button Component Link Tracker") }
+                                    leadingIcon = {
+                                        Icon(
+                                            Icons.Rounded.Share,
+                                            contentDescription = null
+                                        )
+                                    }
                                 )
                             }
                         }
@@ -377,8 +415,7 @@ fun FullPlayerScreen(
                 }
             }
 
-
-            //TITLE & METADATA CONTENT AREA
+            // TITLE & METADATA CONTENT AREA
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -387,7 +424,7 @@ fun FullPlayerScreen(
                     text = song?.title ?: "No Track Playing",
                     style = MaterialTheme.typography.headlineMedium,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -403,7 +440,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            //AUDIO TIMELINE SEEK BAR
+            // AUDIO TIMELINE SEEK BAR
             Column(modifier = Modifier.fillMaxWidth()) {
                 Slider(
                     value = sliderValue,
@@ -418,7 +455,7 @@ fun FullPlayerScreen(
                     valueRange = 0f..(viewModel.totalDuration.toFloat().coerceAtLeast(1f)),
                     colors = SliderDefaults.colors(
                         activeTrackColor = accentColor,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.12f),
+                        inactiveTrackColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
                         thumbColor = accentColor
                     )
                 )
@@ -427,8 +464,16 @@ fun FullPlayerScreen(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    Text(text = formatTime(sliderValue.toLong()), style = MaterialTheme.typography.bodyMedium, color = customLightGrey)
-                    Text(text = formatTime(viewModel.totalDuration), style = MaterialTheme.typography.bodyMedium, color = customLightGrey)
+                    Text(
+                        text = formatTime(sliderValue.toLong()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = customLightGrey
+                    )
+                    Text(
+                        text = formatTime(viewModel.totalDuration),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = customLightGrey
+                    )
                 }
             }
 
@@ -447,7 +492,7 @@ fun FullPlayerScreen(
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Previous Track",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(38.dp)
                     )
                 }
@@ -458,14 +503,14 @@ fun FullPlayerScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (viewModel.isPlaying) accentColor else Color(0xFF2A2A2A))
+                        .background(if (viewModel.isPlaying) accentColor else MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { viewModel.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (viewModel.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = "Play Pause Toggle",
-                        tint = if (viewModel.isPlaying) Color(0xFF2A2A2A) else accentColor,
+                        tint = if (viewModel.isPlaying) MaterialTheme.colorScheme.onPrimary else accentColor,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -479,7 +524,7 @@ fun FullPlayerScreen(
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next Track",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(38.dp)
                     )
                 }
@@ -495,14 +540,13 @@ fun FullPlayerScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Left: Loop Toggle
                 IconButton(
                     onClick = { viewModel.toggleRepeatMode() },
                     modifier = Modifier.size(48.dp)
                 ) {
                     val icon = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat
                     val tint = when (repeatMode) {
-                        RepeatMode.OFF -> Color.White.copy(alpha = 0.5f)
+                        RepeatMode.OFF -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         RepeatMode.ALL -> accentColor
                         RepeatMode.ONE -> accentColor
                     }
@@ -514,39 +558,32 @@ fun FullPlayerScreen(
                     )
                 }
 
-                // Right: Queue Sheet Button
                 IconButton(onClick = { showQueueSheet = true }) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                         contentDescription = "Open Playback Queue Panel",
-                        tint = customLightGrey,
+                        tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(26.dp)
                     )
                 }
             }
         }
-        //Eqz Page
+
+        // Overlays
         if (showEqualizer) {
-            EqualizerPage(
-                viewModel = viewModel,
-                onDismiss = { showEqualizer = false }
-            )
+            EqualizerPage(viewModel = viewModel, onDismiss = { showEqualizer = false })
         }
-        //About Song
         if (navigateToAboutSong) {
-            AboutSongScreen(
-                song = song,
-                onBackClick = { navigateToAboutSong = false }
-            )
+            AboutSongScreen(song = song, onBackClick = { navigateToAboutSong = false })
         }
 
-        //Playlist Add Button
+        // Playlist BottomSheet
         if (showPlaylistDialog && song != null) {
             ModalBottomSheet(
                 onDismissRequest = { showPlaylistDialog = false },
                 sheetState = sheetState,
-                containerColor = Color(0xFF0F0F0F),
-                dragHandle = { BottomSheetDefaults.DragHandle(color = Color.White.copy(alpha = 0.2f)) }
+                containerColor = MaterialTheme.colorScheme.background,
+                dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.onSurface) }
             ) {
                 PlaylistSelectorContent(
                     song = song,
@@ -567,30 +604,36 @@ fun FullPlayerScreen(
             }
         }
 
-        //NATIVE STREAM TRACK QUEUE DRAWER
+        // Queue BottomSheet
         if (showQueueSheet) {
             ModalBottomSheet(
                 onDismissRequest = { showQueueSheet = false },
                 sheetState = sheetState,
-                containerColor = Color(0xFF0F0F0F),
-                scrimColor = Color.Black.copy(alpha = 0.7f),
-                dragHandle = {
-                    BottomSheetDefaults.DragHandle(
-                        color = Color.White.copy(alpha = 0.2f)
-                    )
-                }
+                containerColor = Color.Transparent,
+                scrimColor = Color.Black.copy(alpha = 0.4f),
+                dragHandle = null
             ) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .fillMaxHeight(0.68f)
+                        .glassEffect(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                         .padding(horizontal = 20.dp)
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(vertical = 12.dp)
+                            .size(width = 36.dp, height = 4.dp)
+                            .clip(RoundedCornerShape(100.dp))
+                            .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    )
+
                     Text(
                         text = "Up Next",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.padding(vertical = 8.dp, horizontal = 4.dp)
                     )
 
@@ -605,9 +648,7 @@ fun FullPlayerScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(
-                                        if (isCurrentlyPlaying) accentColor.copy(alpha = 0.15f) else Color.Transparent
-                                    )
+                                    .background(if (isCurrentlyPlaying) accentColor.copy(alpha = 0.15f) else Color.Transparent)
                                     .clickable {
                                         when {
                                             queueSong.id.startsWith("yt_") -> viewModel.playYouTubeSong(currentQueue, index)
@@ -625,7 +666,7 @@ fun FullPlayerScreen(
                                     modifier = Modifier
                                         .size(50.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF1A1A1A)),
+                                        .background(MaterialTheme.colorScheme.surfaceVariant),
                                     error = painterResource(id = R.drawable.default_music),
                                     placeholder = painterResource(id = R.drawable.default_music),
                                     contentScale = ContentScale.Crop
@@ -636,7 +677,7 @@ fun FullPlayerScreen(
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = queueSong.title,
-                                        color = if (isCurrentlyPlaying) accentColor else Color.White,
+                                        color = if (isCurrentlyPlaying) accentColor else MaterialTheme.colorScheme.onSurface,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
                                         style = MaterialTheme.typography.bodyLarge,
