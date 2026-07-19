@@ -39,7 +39,7 @@ fun HomeNavigationDrawer(
                 modifier = Modifier
                     .fillMaxHeight()
                     .fillMaxWidth(0.86f)
-                    .padding(end = 30.dp, bottom = 8.dp)
+                    .padding(end = 24.dp, bottom = 8.dp)
                     .glassEffect(shape = MaterialTheme.shapes.extraLarge),
                 drawerContainerColor = Color.Transparent,
                 drawerTonalElevation = 0.dp
