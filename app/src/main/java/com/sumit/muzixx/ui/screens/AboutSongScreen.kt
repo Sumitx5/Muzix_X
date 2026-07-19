@@ -15,6 +15,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.utils.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,7 +29,7 @@ fun AboutSongScreen(
                 title = {
                     Text(
                         text = "Song Info",
-                        fontWeight = FontWeight.SemiBold,
+                        fontWeight = FontWeight.Bold,
                         fontSize = 20.sp
                     )
                 },
@@ -36,12 +37,14 @@ fun AboutSongScreen(
                     IconButton(onClick = onBackClick) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back to Full Player"
+                            contentDescription = "Back to Full Player",
+                            tint = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background
+                    containerColor = MaterialTheme.colorScheme.background,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
@@ -52,18 +55,22 @@ fun AboutSongScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "No song data available", color = MaterialTheme.colorScheme.onBackground)
+                Text(
+                    text = "No song data available",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    fontWeight = FontWeight.Medium
+                )
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 20.dp)
+                    .padding(horizontal = 16.dp)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(4.dp))
 
                 InfoGroupCard(title = "Track Identity") {
                     InfoRow(label = "Title", value = song.title)
@@ -103,20 +110,19 @@ fun InfoGroupCard(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title.uppercase(),
-            fontSize = 12.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 4.dp, bottom = 6.dp)
+            letterSpacing = 1.sp,
+            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp)
         )
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant
-            )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassEffect(shape = RoundedCornerShape(24.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
             )
@@ -129,7 +135,7 @@ fun InfoRow(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -137,14 +143,16 @@ fun InfoRow(label: String, value: String) {
             text = label,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             fontSize = 14.sp,
-            modifier = Modifier.weight(1f)
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.weight(1.2f)
         )
         Text(
             text = value,
-            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurface,
+            fontWeight = FontWeight.SemiBold,
             fontSize = 14.sp,
             textAlign = TextAlign.End,
-            modifier = Modifier.weight(2f)
+            modifier = Modifier.weight(1.8f)
         )
     }
 }
