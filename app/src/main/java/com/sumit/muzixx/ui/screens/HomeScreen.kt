@@ -163,11 +163,11 @@ fun HomeScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
-                        bottom = if (selectedSong != null) 92.dp else 24.dp
+                        bottom = if (selectedSong != null) 144.dp else 24.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    // SECTION: MONTHLY RECAP (Visible conditionally only on the last day of the month)
+                    //Monthly Recap
                     if (isLastDayOfMonth) {
                         item(key = "monthly_recap_section") {
                             Box(
@@ -210,7 +210,7 @@ fun HomeScreen(
                         }
                     }
 
-                    // SECTION: TRENDING TODAY
+                    // Trending Today
                     item(key = "trending_songs") {
                         SongSection(
                             title = "Trending Today",
@@ -220,11 +220,11 @@ fun HomeScreen(
                         )
                     }
 
-                    // SECTION: RECENTLY HEARD SONGS (Mounted below Trending Today)
+                    // RECENTLY HEARD
                     if (recentlyHeard.isNotEmpty()) {
                         item(key = "recently_heard_songs") {
                             SongSection(
-                                title = "Recently Heard",
+                                title = "Recently Played",
                                 songs = recentlyHeard,
                                 isLoading = false,
                                 onClick = { index ->

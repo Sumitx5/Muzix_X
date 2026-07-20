@@ -31,7 +31,7 @@ fun LibraryScreen(
 
     val currentPlaylist = viewModel.selectedPlaylist
     val isPlayerActive = viewModel.selectedSong != null
-    val dynamicallyCalculatedBottomPadding = if (isPlayerActive) 92.dp else 24.dp
+    val dynamicallyCalculatedBottomPadding = if (isPlayerActive) 144.dp else 24.dp
     val accentColor = MaterialTheme.colorScheme.primary
 
     val executeAutoRoutedPlayback: (List<Song>, Int) -> Unit = { targetedList, indexPointer ->
