@@ -221,6 +221,7 @@ fun FullPlayerScreen(
                     .size(width = 40.dp, height = 4.dp)
                     .clip(RoundedCornerShape(100.dp))
                     .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f))
+                    .glassEffect(RoundedCornerShape(16.dp))
             )
 
             // ALBUM ART
@@ -487,7 +488,7 @@ fun FullPlayerScreen(
             ) {
                 IconButton(
                     onClick = { viewModel.playPrevious() },
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(56.dp).glassEffect(RoundedCornerShape(16.dp))
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
@@ -503,6 +504,7 @@ fun FullPlayerScreen(
                     modifier = Modifier
                         .size(72.dp)
                         .clip(RoundedCornerShape(22.dp))
+                        .glassEffect(RoundedCornerShape(22.dp))
                         .background(if (viewModel.isPlaying) accentColor else MaterialTheme.colorScheme.surfaceVariant)
                         .clickable { viewModel.togglePlayPause() },
                     contentAlignment = Alignment.Center
@@ -519,7 +521,7 @@ fun FullPlayerScreen(
 
                 IconButton(
                     onClick = { viewModel.playNext() },
-                    modifier = Modifier.size(56.dp)
+                    modifier = Modifier.size(56.dp).glassEffect(RoundedCornerShape(16.dp))
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
@@ -542,7 +544,7 @@ fun FullPlayerScreen(
             ) {
                 IconButton(
                     onClick = { viewModel.toggleRepeatMode() },
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(48.dp).glassEffect(CircleShape)
                 ) {
                     val icon = if (repeatMode == RepeatMode.ONE) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat
                     val tint = when (repeatMode) {
@@ -551,14 +553,17 @@ fun FullPlayerScreen(
                         RepeatMode.ONE -> accentColor
                     }
                     Icon(
-                            imageVector = icon,
+                        imageVector = icon,
                     contentDescription = "Cycle Playback Loop Repeat Settings",
                     tint = tint,
                     modifier = Modifier.size(24.dp)
                     )
                 }
 
-                IconButton(onClick = { showQueueSheet = true }) {
+                IconButton(
+                    onClick = { showQueueSheet = true },
+                    modifier = Modifier.glassEffect(CircleShape)
+                ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                         contentDescription = "Open Playback Queue Panel",
