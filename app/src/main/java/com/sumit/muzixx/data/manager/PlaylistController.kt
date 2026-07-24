@@ -54,8 +54,8 @@ class PlaylistController(private val onSavePlaylists: () -> Unit) {
         return gson.toJson(sanitizedLists)
     }
 
-    fun createCustomPlaylist(name: String) {
-        if (name.isBlank()) return
+    fun createCustomPlaylist(name: String): Playlist? {
+        if (name.isBlank()) return null
 
         val newPlaylist = Playlist(
             id = UUID.randomUUID().toString(),
@@ -64,6 +64,7 @@ class PlaylistController(private val onSavePlaylists: () -> Unit) {
         )
         playlists.add(newPlaylist)
         onSavePlaylists()
+        return newPlaylist
     }
 
     fun addSongToPlaylist(playlistId: String, song: Song) {

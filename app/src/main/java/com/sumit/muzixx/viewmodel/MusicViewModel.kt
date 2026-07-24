@@ -1,13 +1,13 @@
 package com.sumit.muzixx.viewmodel
 
 import android.annotation.SuppressLint
-import android.content.Context
+import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.sumit.muzixx.data.Playlist
 import com.sumit.muzixx.data.Song
@@ -18,6 +18,7 @@ import com.sumit.muzixx.data.manager.PlaybackPersistenceManager
 import com.sumit.muzixx.data.manager.PlaylistController
 import com.sumit.muzixx.data.model.toSong
 import com.sumit.muzixx.data.network.JioSaavnApiService
+import com.sumit.muzixx.data.network.SpotifyImporter
 import com.sumit.muzixx.data.network.UpdateChecker
 import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import com.sumit.muzixx.data.network.YouTubeMusicScraper
@@ -26,10 +27,13 @@ import com.sumit.muzixx.data.repository.SettingsRepository
 import com.sumit.muzixx.utils.NetworkUtils.isWifiConnected
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class MusicViewModel : ViewModel() {
+class MusicViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val context get() = getApplication<Application>().applicationContext
 
     val mediaStateHolder by lazy { MediaStateHolder(viewModelScope) }
     private val ytScraper = YouTubeMusicScraper()
@@ -37,6 +41,7 @@ class MusicViewModel : ViewModel() {
     private val jioSaavnApiService by lazy { JioSaavnApiService.create() }
     private val autoplayManager by lazy { AutoplayManager(ytScraper, ytExtractor, jioSaavnApiService) }
     private var persistenceManager: PlaybackPersistenceManager? = null
+    private val spotifyImporter = SpotifyImporter()
 
     lateinit var settings: SettingsRepository private set
     lateinit var stats: PlaybackStatsRepository private set
@@ -46,8 +51,6 @@ class MusicViewModel : ViewModel() {
             persistenceManager?.saveCustomPlaylistsJson(playlistController.getCustomPlaylistsJson())
         })
     }
-
-    private var applicationContext: Context? = null
 
     // EXPOSED PLAYER STATES
     val isPlaying get() = playerController.isPlaying
@@ -146,27 +149,23 @@ class MusicViewModel : ViewModel() {
         set(value) { playlistController.selectedPlaylist = value }
 
     // Initialization
-    fun initSettings(context: Context) {
+    fun initSettings() {
         if (::settings.isInitialized) return
-        this.applicationContext = context.applicationContext
-        settings = SettingsRepository(context.applicationContext, viewModelScope)
+        settings = SettingsRepository(context, viewModelScope)
     }
 
     fun isSettingsInitialized(): Boolean = ::settings.isInitialized
 
-    fun initStatsManager(context: Context) {
+    fun initStatsManager() {
         if (::stats.isInitialized) return
-        this.applicationContext = context.applicationContext
-        stats = PlaybackStatsRepository(context.applicationContext, viewModelScope)
+        stats = PlaybackStatsRepository(context, viewModelScope)
     }
 
-    fun initMediaController(context: Context, onControllerReady: () -> Unit = {}) {
-        this.applicationContext = context.applicationContext
+    fun initMediaController(onControllerReady: () -> Unit = {}) {
         playerController.initMediaController(context, onControllerReady)
     }
 
-    fun initStorage(context: Context, skipSongRestoration: Boolean = false) {
-        this.applicationContext = context.applicationContext
+    fun initStorage(skipSongRestoration: Boolean = false) {
         persistenceManager = PlaybackPersistenceManager(context)
 
         loadSearchHistory()
@@ -244,10 +243,10 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    fun clearAudioCache(context: Context) {
+    fun clearAudioCache() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val cacheDir = context.applicationContext.cacheDir
+                val cacheDir = context.cacheDir
                 if (cacheDir.exists() && cacheDir.isDirectory) {
                     cacheDir.listFiles()?.forEach { file -> file.deleteRecursively() }
                 }
@@ -259,10 +258,10 @@ class MusicViewModel : ViewModel() {
     }
 
     @SuppressLint("DefaultLocale")
-    fun calculateCurrentCacheSize(context: Context) {
+    fun calculateCurrentCacheSize() {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val cacheDir = context.applicationContext.cacheDir
+                val cacheDir = context.cacheDir
                 var totalBytes = 0L
                 if (cacheDir.exists() && cacheDir.isDirectory) {
                     cacheDir.walkTopDown().forEach { if (it.isFile) totalBytes += it.length() }
@@ -277,6 +276,57 @@ class MusicViewModel : ViewModel() {
 
     fun updateAppTheme(themeName: String) {
         if (isSettingsInitialized()) settings.updateAppTheme(themeName)
+    }
+
+    // High-performance Concurrent Spotify Importer
+    fun importSpotifyPlaylist(
+        url: String,
+        onSuccess: (playlistName: String, count: Int) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (url.isBlank()) {
+            onError("Please enter a valid Spotify playlist URL")
+            return
+        }
+
+        viewModelScope.launch {
+            try {
+                // Fetch both the extracted playlist name and track list
+                val importResult = spotifyImporter.fetchPlaylistTracks(url)
+                val spotifyTracks = importResult.tracks
+
+                if (spotifyTracks.isEmpty()) {
+                    onError("Failed to parse Spotify playlist. Ensure the link is public.")
+                    return@launch
+                }
+
+                // Parallel async resolution of YouTube streams for fast imports
+                val resolvedSongs = withContext(Dispatchers.IO) {
+                    spotifyTracks.map { spotifyTrack ->
+                        async {
+                            try {
+                                val query = "${spotifyTrack.title} ${spotifyTrack.artist}"
+                                val results = ytScraper.searchSongs(query)
+                                results.firstOrNull()
+                            } catch (_: Exception) {
+                                null
+                            }
+                        }
+                    }.awaitAll().filterNotNull()
+                }
+
+                if (resolvedSongs.isNotEmpty()) {
+                    // Use the imported Spotify playlist name (fallback handled inside SpotifyImporter)
+                    val playlistName = importResult.playlistName
+                    createPlaylist(playlistName, resolvedSongs)
+                    onSuccess(playlistName, resolvedSongs.size)
+                } else {
+                    onError("Could not resolve playable audio streams for tracks in this playlist.")
+                }
+            } catch (e: Exception) {
+                onError("Import failed: ${e.localizedMessage ?: "Unknown error"}")
+            }
+        }
     }
 
     // Search & Content Fetching
@@ -334,9 +384,9 @@ class MusicViewModel : ViewModel() {
                 val hindiHits = hindiHitsDef.await()?.data?.songs?.map { it.toSong("Hindi Hits") } ?: emptyList()
 
                 withContext(Dispatchers.Main) {
-                    saavnTrendingSongs.clear(); saavnTrendingSongs.addAll(trending)
-                    saavnNewReleases.clear(); saavnNewReleases.addAll(newReleases)
-                    saavnHminiHits.clear(); saavnHminiHits.addAll(hindiHits)
+                    saavnTrendingSongs.apply { clear(); addAll(trending) }
+                    saavnNewReleases.apply { clear(); addAll(newReleases) }
+                    saavnHminiHits.apply { clear(); addAll(hindiHits) }
                 }
             } finally {
                 withContext(Dispatchers.Main) {
@@ -509,9 +559,7 @@ class MusicViewModel : ViewModel() {
 
         if (currentIndex >= totalQueueLength - 2) {
             if (isSettingsInitialized() && settings.streamWifiOnly) {
-                applicationContext?.let { ctx ->
-                    if (!isWifiConnected(ctx)) return
-                }
+                if (!isWifiConnected(context)) return
             }
 
             viewModelScope.launch(Dispatchers.IO) {
@@ -560,14 +608,22 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    // Custom Playlist Management
+    fun createPlaylist(name: String, initialSongs: List<Song> = emptyList()): Playlist? {
+        val createdPlaylist = playlistController.createCustomPlaylist(name) ?: return null
+        initialSongs.forEach { song ->
+            playlistController.addSongToPlaylist(createdPlaylist.id, song)
+        }
+        return createdPlaylist
+    }
 
-    fun createCustomPlaylist(name: String) = playlistController.createCustomPlaylist(name)
+    fun createCustomPlaylist(name: String): Playlist? = playlistController.createCustomPlaylist(name)
     fun addSongToPlaylist(playlistId: String, song: Song) = playlistController.addSongToPlaylist(playlistId, song)
     fun removeSongFromPlaylist(playlistId: String, song: Song) = playlistController.removeSongFromPlaylist(playlistId, song)
     fun renamePlaylist(playlistId: String, newName: String) = playlistController.renamePlaylist(playlistId, newName)
     fun deletePlaylist(playlistId: String) = playlistController.deletePlaylist(playlistId)
 
-    fun triggerUpdateCheck(context: Context) {
+    fun triggerUpdateCheck() {
         viewModelScope.launch { UpdateChecker.check(context, isManualCheck = true) }
     }
 

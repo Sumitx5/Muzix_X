@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.CallReceived
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -28,6 +28,9 @@ fun IntegrationScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    var showSpotifyDialog by remember { mutableStateOf(false) }
+    var spotifyUrl by remember { mutableStateOf("") }
+    var isImporting by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
@@ -83,9 +86,7 @@ fun IntegrationScreen(
                         title = "Import Spotify Playlist",
                         description = "Sync your favorite tracks from public Spotify links.",
                         brandColor = Color(0xFF1DB954),
-                        onClick = {
-                            Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
-                        }
+                        onClick = { showSpotifyDialog = true }
                     )
                 }
 
@@ -95,7 +96,7 @@ fun IntegrationScreen(
                         description = "Bring over your specialized streaming queues.",
                         brandColor = Color(0xFFFF0000),
                         onClick = {
-                            Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Coming Soon", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -106,10 +107,76 @@ fun IntegrationScreen(
                         description = "Convert video collections directly to standard audio formats.",
                         brandColor = Color(0xFFE62117),
                         onClick = {
-                            Toast.makeText(context, "Under Development", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, "Coming Soon", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
+            }
+
+            // Spotify Link Input Dialog
+            if (showSpotifyDialog) {
+                AlertDialog(
+                    onDismissRequest = { if (!isImporting) showSpotifyDialog = false },
+                    title = { Text("Import Spotify Playlist") },
+                    text = {
+                        Column {
+                            Text(
+                                "Paste a public Spotify playlist URL below:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            OutlinedTextField(
+                                value = spotifyUrl,
+                                onValueChange = { spotifyUrl = it },
+                                placeholder = { Text("https://open.spotify.com/playlist/...") },
+                                singleLine = true,
+                                enabled = !isImporting,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (isImporting) {
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
+                                    Text("Resolving and importing tracks...", style = MaterialTheme.typography.bodyMedium)
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            enabled = !isImporting && spotifyUrl.isNotBlank(),
+                            onClick = {
+                                isImporting = true
+                                viewModel.importSpotifyPlaylist(
+                                    url = spotifyUrl,
+                                    onSuccess = { name, count ->
+                                        isImporting = false
+                                        showSpotifyDialog = false
+                                        spotifyUrl = ""
+                                        Toast.makeText(context, "Successfully imported '$name' with $count tracks!", Toast.LENGTH_LONG).show()
+                                    },
+                                    onError = { errorMsg ->
+                                        isImporting = false
+                                        Toast.makeText(context, errorMsg, Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        ) {
+                            Text("Import")
+                        }
+                    },
+                    dismissButton = {
+                        if (!isImporting) {
+                            TextButton(onClick = { showSpotifyDialog = false }) {
+                                Text("Cancel")
+                            }
+                        }
+                    }
+                )
             }
         }
     }

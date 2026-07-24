@@ -66,10 +66,10 @@ class MainActivity : ComponentActivity() {
 
         intent?.data?.let { uri -> handleIncomingDeepLink(uri) }
 
-        musicViewModel.initSettings(applicationContext)
-        musicViewModel.initStatsManager(applicationContext)
-        musicViewModel.initMediaController(applicationContext) {
-            musicViewModel.initStorage(applicationContext, skipSongRestoration = isProcessingDeepLink)
+        musicViewModel.initSettings()
+        musicViewModel.initStatsManager()
+        musicViewModel.initMediaController {
+            musicViewModel.initStorage(skipSongRestoration = isProcessingDeepLink)
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
