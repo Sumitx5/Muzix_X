@@ -64,7 +64,7 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.calculateCurrentCacheSize(context)
+        viewModel.calculateCurrentCacheSize()
     }
 
     Scaffold(
@@ -214,7 +214,7 @@ fun SettingsScreen(
                             subtitle = "Free up storage by clearing temporarily streamed image arts and audio buffers (${viewModel.cacheSizeText})",
                             icon = Icons.Default.Delete
                         ) {
-                            viewModel.clearAudioCache(context)
+                            viewModel.clearAudioCache()
                         }
                     }
                 }
@@ -240,7 +240,7 @@ fun SettingsScreen(
                             subtitle = "Verify build references with server deployment branch logs",
                             icon = Icons.Default.Refresh
                         ) {
-                            viewModel.triggerUpdateCheck(context)
+                            viewModel.triggerUpdateCheck()
                         }
                     }
                 }
@@ -323,6 +323,7 @@ fun SettingsScreen(
     // Theme-Box
     if (showThemeDialog) {
         AlertDialog(
+            modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
             onDismissRequest = { showThemeDialog = false },
             shape = RoundedCornerShape(24.dp),
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -381,6 +382,7 @@ fun SettingsScreen(
     // DYNAMIC AUDIO BITRATE SELECTION DIALOG
     if (showQualityDialog) {
         AlertDialog(
+            modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
             onDismissRequest = { showQualityDialog = false },
             shape = RoundedCornerShape(24.dp),
             containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,

@@ -29,9 +29,9 @@ fun Modifier.glassEffect(shape: Shape): Modifier {
         .background(
             Brush.verticalGradient(
                 colors = listOf(
-                    surfaceColor.copy(alpha = 0.96f),
-                    surfaceColor.copy(alpha = 0.92f),
-                    surfaceColor.copy(alpha = 0.94f)
+                    surfaceColor.copy(alpha = 0.86f),
+                    surfaceColor.copy(alpha = 0.82f),
+                    surfaceColor.copy(alpha = 0.84f)
                 )
             )
         )

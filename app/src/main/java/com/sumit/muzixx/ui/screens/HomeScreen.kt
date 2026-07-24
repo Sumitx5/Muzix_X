@@ -108,7 +108,7 @@ fun HomeScreen(
         },
         onCheckUpdatesClick = {
             scope.launch { drawerState.close() }
-            viewModel.triggerUpdateCheck(context)
+            viewModel.triggerUpdateCheck()
         },
         onSettingsClick = {
             scope.launch { drawerState.close() }
@@ -176,7 +176,7 @@ fun HomeScreen(
                                     .padding(horizontal = 16.dp)
                                     .glassEffect(RoundedCornerShape(20.dp))
                                     .clickable {
-                                        Toast.makeText(context, "$currentMonthName Recap is coming soon!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, "Recap is coming soon!", Toast.LENGTH_SHORT).show()
                                     }
                                     .padding(16.dp)
                             ) {
