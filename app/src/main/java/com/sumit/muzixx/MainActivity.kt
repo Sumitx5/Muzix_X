@@ -41,12 +41,13 @@ import com.sumit.muzixx.data.network.UpdateChecker
 import org.schabi.newpipe.extractor.NewPipe
 import okhttp3.OkHttpClient
 import com.sumit.muzixx.data.network.MuzixDownloader
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.utils.YouTubeResolver
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlin.time.Duration.Companion.milliseconds
 
 @Suppress("DEPRECATION")
@@ -54,6 +55,7 @@ class MainActivity : ComponentActivity() {
     private val musicViewModel: MusicViewModel by viewModels()
     private val authViewModel: AuthViewModel by viewModels()
     private var defaultCrashHandler: Thread.UncaughtExceptionHandler? = null
+
     private var isProcessingDeepLink = false
 
     @SuppressLint("NewApi")
@@ -61,16 +63,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setupCrashHandler()
         unlockHighRefreshRate()
+
         intent?.data?.let { uri -> handleIncomingDeepLink(uri) }
 
         musicViewModel.initSettings(applicationContext)
         musicViewModel.initStatsManager(applicationContext)
         musicViewModel.initMediaController(applicationContext) {
-            if (!isProcessingDeepLink) {
-                musicViewModel.initStorage(applicationContext)
-            } else {
-                musicViewModel.loadSearchHistory()
-            }
+            musicViewModel.initStorage(applicationContext, skipSongRestoration = isProcessingDeepLink)
         }
 
         lifecycleScope.launch(Dispatchers.IO) {
@@ -126,8 +125,12 @@ class MainActivity : ComponentActivity() {
                 UpdateDialog()
 
                 val loadLocalTracks = {
-                    val trackList = fetchLocalSongs(context)
-                    musicViewModel.loadLocalSongsWithLoadingState(trackList)
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        val trackList = fetchLocalSongs(context)
+                        withContext(Dispatchers.Main) {
+                            musicViewModel.loadLocalSongsWithLoadingState(trackList)
+                        }
+                    }
                 }
 
                 val storagePermissionLauncher = rememberLauncherForActivityResult(
@@ -143,7 +146,8 @@ class MainActivity : ComponentActivity() {
                         notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
                     }
 
-                    kotlinx.coroutines.withContext(Dispatchers.IO) {
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        delay(200.milliseconds)
                         musicViewModel.loadJioSaavnHomeContent()
                     }
 
@@ -245,8 +249,7 @@ class MainActivity : ComponentActivity() {
                                         .background(Color.Transparent)
                                 ) {
                                     if (selectedSong != null) {
-                                        Box(modifier = Modifier.align(Alignment.CenterHorizontally)
-                                        ) {
+                                        Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
                                             MiniPlayer(
                                                 song = selectedSong,
                                                 isPlaying = musicViewModel.isPlaying,
@@ -300,20 +303,27 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun unlockHighRefreshRate() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val window = this.window
-            val params = window.attributes
-            val display = window.decorView.display
+        val window = this.window
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            val display = window.decorView.display
             if (display != null) {
                 val modes = display.supportedModes
-                val highestMode = modes.maxByOrNull { it.refreshRate }
+                val currentMode = display.mode
+                val highestRefreshRateMode = modes
+                    .filter { it.physicalWidth == currentMode.physicalWidth && it.physicalHeight == currentMode.physicalHeight }
+                    .maxByOrNull { it.refreshRate }
 
-                if (highestMode != null) {
-                    params.preferredDisplayModeId = highestMode.modeId
-                    window.attributes = params
-                    android.util.Log.d("Muzix Performance", "Refresh Rate: ${highestMode.refreshRate}Hz")
+                val maxHz = modes.maxOfOrNull { it.refreshRate } ?: 120f
+                val params = window.attributes
+
+                if (highestRefreshRateMode != null) {
+                    params.preferredDisplayModeId = highestRefreshRateMode.modeId
                 }
+                params.preferredRefreshRate = maxHz
+                window.attributes = params
+
+                android.util.Log.d("Muzix Performance", "Unlocked Peak Refresh Rate: ${maxHz}Hz")
             }
         } else {
             @Suppress("DEPRECATION")
@@ -374,21 +384,18 @@ class MainActivity : ComponentActivity() {
                     if (songId.isNotBlank()) {
                         isProcessingDeepLink = true
 
-                        val isYoutube = songId.startsWith("yt_")
-                        val reconstructedArtUri = when {
-                            isYoutube -> "https://img.youtube.com/vi/${songId.substringAfter("yt_")}/mqdefault.jpg"
-                            rawArt.isNotBlank() && !rawArt.startsWith("http") -> "https://c.saavncdn.com/$rawArt"
-                            else -> rawArt
-                        }
+                        lifecycleScope.launch(Dispatchers.IO) {
+                            val sharedSong = YouTubeResolver.resolveDeepLinkSong(
+                                songId = songId,
+                                title = title,
+                                artist = artist,
+                                rawArt = rawArt
+                            )
 
-                        val sharedSong = Song(
-                            id = songId, title = title, artist = artist, uri = "",
-                            artUri = reconstructedArtUri, duration = 0, isStreaming = true,
-                            folderName = "", type = if (isYoutube) "yt" else "saavn"
-                        )
-                        lifecycleScope.launch {
-                            delay(400.milliseconds)
-                            musicViewModel.playMusicCollection(listOf(sharedSong), 0)
+                            withContext(Dispatchers.Main) {
+                                delay(300.milliseconds)
+                                musicViewModel.playMusicCollection(listOf(sharedSong), 0)
+                            }
                         }
                     }
                 } catch (e: Exception) {
