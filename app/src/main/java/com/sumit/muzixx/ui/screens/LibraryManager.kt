@@ -314,8 +314,8 @@ fun LibrarySongItem(
                     expanded = showSongMenu,
                     onDismissRequest = { showSongMenu = false },
                     modifier = Modifier
-                        .glassEffect(RoundedCornerShape(16.dp))
                         .background(Color.Transparent)
+                        .glassEffect(RoundedCornerShape(6.dp))
                 ) {
                     DropdownMenuItem(
                         text = { Text("Add to Playlist") },
