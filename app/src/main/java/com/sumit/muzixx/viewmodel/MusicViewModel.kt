@@ -2,47 +2,54 @@ package com.sumit.muzixx.viewmodel
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.SharedPreferences
 import android.util.Log
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
-import androidx.core.content.edit
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sumit.muzixx.data.Playlist
 import com.sumit.muzixx.data.Song
-import com.sumit.muzixx.data.manager.PlayerController
-import com.sumit.muzixx.data.manager.PlaylistController
+import com.sumit.muzixx.data.manager.AutoplayManager
 import com.sumit.muzixx.data.manager.MediaStateHolder
-import com.sumit.muzixx.data.repository.SettingsRepository
-import com.sumit.muzixx.data.repository.PlaybackStatsRepository
+import com.sumit.muzixx.data.manager.PlayerController
+import com.sumit.muzixx.data.manager.PlaybackPersistenceManager
+import com.sumit.muzixx.data.manager.PlaylistController
+import com.sumit.muzixx.data.model.toSong
 import com.sumit.muzixx.data.network.JioSaavnApiService
 import com.sumit.muzixx.data.network.UpdateChecker
-import com.sumit.muzixx.data.model.toSong
 import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import com.sumit.muzixx.data.network.YouTubeMusicScraper
+import com.sumit.muzixx.data.repository.PlaybackStatsRepository
+import com.sumit.muzixx.data.repository.SettingsRepository
 import com.sumit.muzixx.utils.NetworkUtils.isWifiConnected
-import kotlinx.coroutines.*
-import org.json.JSONArray
-import org.json.JSONObject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MusicViewModel : ViewModel() {
 
     val mediaStateHolder by lazy { MediaStateHolder(viewModelScope) }
     private val ytScraper = YouTubeMusicScraper()
     private val ytExtractor = YouTubeAudioExtractor()
+    private val jioSaavnApiService by lazy { JioSaavnApiService.create() }
+    private val autoplayManager by lazy { AutoplayManager(ytScraper, ytExtractor, jioSaavnApiService) }
+    private var persistenceManager: PlaybackPersistenceManager? = null
 
     lateinit var settings: SettingsRepository private set
     lateinit var stats: PlaybackStatsRepository private set
 
-    private val playlistController by lazy { PlaylistController(onSavePlaylists = { savePlaylistsToStorage() }) }
-    private val jioSaavnApiService by lazy { JioSaavnApiService.create() }
-    private var sharedPreferences: SharedPreferences? = null
+    private val playlistController: PlaylistController by lazy {
+        PlaylistController(onSavePlaylists = {
+            persistenceManager?.saveCustomPlaylistsJson(playlistController.getCustomPlaylistsJson())
+        })
+    }
+
     private var applicationContext: Context? = null
 
-    //EXPOSED PLAYER STATES
+    // EXPOSED PLAYER STATES
     val isPlaying get() = playerController.isPlaying
     val selectedSong get() = playerController.selectedSong
     val currentPosition get() = mediaStateHolder.currentPosition
@@ -53,7 +60,7 @@ class MusicViewModel : ViewModel() {
     val activePlaylistIndex get() = playerController.activePlaylistIndex
     val activePlaybackQueue get() = playerController.activePlaybackQueue
 
-    //CORE CENTRALIZED PLAYER HANDLER
+    // CENTRALIZED PLAYER CONTROLLER
     private val playerController by lazy {
         PlayerController(
             scope = viewModelScope,
@@ -68,26 +75,23 @@ class MusicViewModel : ViewModel() {
                 if (::stats.isInitialized) stats.stopPlaybackTimer()
                 mediaStateHolder.stopTracking()
             },
-
             onTrackSwitched = { switchedSong ->
-                sharedPreferences?.edit { putLong("last_song_playback_position", 0L) }
+                persistenceManager?.resetLastPlaybackPosition()
                 if (::stats.isInitialized) stats.incrementSongsHeardCount()
-                saveLastPlayedSong(switchedSong)
-                addToRecentlyPlayed(switchedSong) // Real-time hook update
+                persistenceManager?.saveLastPlayedSong(switchedSong)
+                addToRecentlyPlayed(switchedSong)
                 handleQueueLookaheadAutoplay()
             },
             onQueueUpdated = { updatedList ->
                 currentPlaybackQueue = updatedList
             },
-
             resolveYouTubeStream = { songItem ->
                 try {
                     val cleanId = songItem.id.replace("yt_", "")
-                    Log.d("VM_YT_RESOLVE", "Extracting live NewPipe audio stream link for: $cleanId")
                     val extractedSong = ytExtractor.getSongFromVideoId(cleanId)
                     extractedSong?.uri
                 } catch (e: Exception) {
-                    Log.e("VM_YT_RESOLVE", "Failed extracting YouTube stream path via NewPipe", e)
+                    Log.e("VM_YT_RESOLVE", "Failed extracting YouTube stream path", e)
                     null
                 }
             },
@@ -107,7 +111,7 @@ class MusicViewModel : ViewModel() {
     var cacheSizeText by mutableStateOf("Calculating...")
         private set
 
-    //UI STATE LISTS
+    // UI STATE LISTS
     val songs = mutableStateListOf<Song>()
     val searchResults = mutableStateListOf<Song>()
     val saavnTrendingSongs = mutableStateListOf<Song>()
@@ -118,8 +122,6 @@ class MusicViewModel : ViewModel() {
     var currentCloudPlaylistName by mutableStateOf<String?>(null)
     val currentCloudPlaylistSongs = mutableStateListOf<Song>()
     val searchHistory = mutableStateListOf<String>()
-
-    // RECENTLY HEARD PERSISTENT DATA STATE
     val recentlyPlayedSongs = mutableStateListOf<Song>()
 
     // Loading States
@@ -143,16 +145,14 @@ class MusicViewModel : ViewModel() {
         get() = playlistController.selectedPlaylist
         set(value) { playlistController.selectedPlaylist = value }
 
-    //Settings
+    // Initialization
     fun initSettings(context: Context) {
         if (::settings.isInitialized) return
         this.applicationContext = context.applicationContext
         settings = SettingsRepository(context.applicationContext, viewModelScope)
     }
 
-    fun isSettingsInitialized(): Boolean {
-        return ::settings.isInitialized
-    }
+    fun isSettingsInitialized(): Boolean = ::settings.isInitialized
 
     fun initStatsManager(context: Context) {
         if (::stats.isInitialized) return
@@ -165,233 +165,83 @@ class MusicViewModel : ViewModel() {
         playerController.initMediaController(context, onControllerReady)
     }
 
-    fun initStorage(context: Context) {
+    fun initStorage(context: Context, skipSongRestoration: Boolean = false) {
         this.applicationContext = context.applicationContext
-        sharedPreferences = context.getSharedPreferences("muzix_prefs", Context.MODE_PRIVATE)
+        persistenceManager = PlaybackPersistenceManager(context)
+
         loadSearchHistory()
         loadRecentlyPlayedFromStorage()
 
         try {
-            val json = sharedPreferences?.getString("custom_playlists", null)
+            val json = persistenceManager?.loadCustomPlaylistsJson()
             playlistController.loadPlaylistsFromJson(json)
         } catch (_: Exception) {
-            Log.e("PLAYLIST_STORAGE", "Corrupted storage cleared")
-            sharedPreferences?.edit { remove("custom_playlists") }
+            persistenceManager?.clearCustomPlaylistsStorage()
         }
 
+        if (skipSongRestoration) return
+
         if (playerController.selectedSong == null) {
-            val lastSong = loadLastPlayedSong()
+            val lastSong = persistenceManager?.loadLastPlayedSong()
             if (lastSong != null && lastSong.id.isNotBlank()) {
                 playerController.selectedSong = lastSong
                 playerController.submitQueueToPlayer(listOf(lastSong), 0, playWhenReady = false)
                 playerController.preparePlayerEngine()
-                autoRebuildQueueOnRestart(lastSong)
 
-                val savedProgress = sharedPreferences?.getLong("last_song_playback_position", 0L) ?: 0L
+                viewModelScope.launch(Dispatchers.IO) {
+                    val combinedQueue = autoplayManager.buildBootQueue(lastSong)
+                    if (combinedQueue.size > 1) {
+                        withContext(Dispatchers.Main) {
+                            playerController.submitQueueToPlayer(combinedQueue, 0, playWhenReady = false)
+                            currentPlaybackQueue = combinedQueue
+                        }
+                    }
+                }
+
+                val savedProgress = persistenceManager?.getLastPlaybackPosition() ?: 0L
                 if (savedProgress > 0L) {
                     seekTo(savedProgress)
                 }
-            } else {
-                currentPlaybackQueue = emptyList()
-                Log.d("INIT_STORAGE", "First time launch or clear cache sequence triggered.")
-            }
-        }
-    }
-
-    private fun autoRebuildQueueOnRestart(currentSong: Song) {
-        if (currentSong.type.lowercase().trim() == "local") return
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                Log.d("MuzixX_BootAutoplay", "Cold boot building queue for: ${currentSong.title}")
-                val combinedQueue = mutableListOf(currentSong)
-
-                val isJioSaavn = currentSong.id.all { it.isDigit() } ||
-                        currentSong.artist.contains("JioSaavn") ||
-                        currentSong.title.contains("JioSaavn")
-
-                if (isJioSaavn) {
-                    val queryBuilder = StringBuilder(currentSong.title)
-                    if (currentSong.artist.isNotBlank() && currentSong.artist.lowercase() != "unknown") {
-                        queryBuilder.append(" ").append(currentSong.artist)
-                    }
-                    val searchQuery = queryBuilder.toString().trim()
-
-                    Log.d("MuzixX_BootAutoplay", "JioSaavn track detected on boot. Bridging to YouTube via search: $searchQuery")
-
-                    val ytSearchResults = ytScraper.searchSongs(searchQuery)
-                    if (ytSearchResults.isNotEmpty()) {
-                        val firstYtMatch = ytSearchResults.first()
-                        val targetVideoId = firstYtMatch.id.replace("yt_", "").trim()
-
-                        Log.d("MuzixX_BootAutoplay", "Cross-referenced video match found ($targetVideoId). Pulling related recommendations...")
-
-                        val recommendations = ytExtractor.getRelatedSongsFromVideoId(targetVideoId)
-                        val lowerTitle = currentSong.title.lowercase().trim()
-
-                        val uniqueRecs = recommendations.filter { rec ->
-                            rec.title.lowercase().trim() != lowerTitle
-                        }
-                        combinedQueue.addAll(uniqueRecs)
-                    }
-                }
-                else {
-                    val targetVideoId = currentSong.id.replace("yt_", "").trim()
-                    val recommendations = ytExtractor.getRelatedSongsFromVideoId(targetVideoId)
-                    if (recommendations.isNotEmpty()) {
-                        val uniqueRecs = recommendations.filter { rec ->
-                            rec.id.replace("yt_", "").trim() != targetVideoId &&
-                                    rec.title.lowercase().trim() != currentSong.title.lowercase().trim()
-                        }
-                        combinedQueue.addAll(uniqueRecs)
-                    }
-                }
-
-                if (combinedQueue.size > 1) {
-                    withContext(Dispatchers.Main) {
-                        playerController.submitQueueToPlayer(combinedQueue, 0, playWhenReady = false)
-                        currentPlaybackQueue = combinedQueue
-                        Log.d("MuzixX_BootAutoplay", "Boot bridge successful. Injected ${combinedQueue.size - 1} YouTube recommendations behind your JioSaavn track.")
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("MuzixX_BootAutoplay", "Failed building lookahead stream bridges on startup", e)
             }
         }
     }
 
     fun saveCurrentPlaybackPosition() {
-        val currentPos = currentPosition
-        sharedPreferences?.edit {
-            putLong("last_song_playback_position", currentPos)
-        }
-        Log.d("MuzixX_Storage", "Saved recovery playback state marker at: $currentPos ms")
+        persistenceManager?.saveCurrentPlaybackPosition(currentPosition)
     }
 
     fun overwriteStatsFromCloud(
         totalHeard: Int, monthlyHeard: Int, yearlyHeard: Int,
         totalSec: Long, monthlySec: Long, yearlySec: Long
     ) {
-        if (totalHeard == 0 && monthlyHeard == 0 && totalSec == 0L) {
-            Log.d("MuzixX_Sync", "Skipping sync: Cloud data appears to still be loading zeros.")
-            return
-        }
+        if (totalHeard == 0 && monthlyHeard == 0 && totalSec == 0L) return
 
-        val prefs = sharedPreferences ?: return
-        val isAlreadySynced = prefs.getBoolean("cloud_stats_synced_v1", false)
-
-        if (!isAlreadySynced && ::stats.isInitialized) {
-            stats.overwriteLocalStatsWithCloud(
-                totalHeard, monthlyHeard, yearlyHeard, totalSec, monthlySec, yearlySec
-            )
-            prefs.edit { putBoolean("cloud_stats_synced_v1", true) }
-            Log.d("MuzixX_Sync", "Initial cloud stats successfully pulled and locked.")
+        val pm = persistenceManager ?: return
+        if (!pm.isCloudStatsSynced() && ::stats.isInitialized) {
+            stats.overwriteLocalStatsWithCloud(totalHeard, monthlyHeard, yearlyHeard, totalSec, monthlySec, yearlySec)
+            pm.markCloudStatsSynced()
         }
     }
 
     fun resetCloudSyncFlag() {
-        sharedPreferences?.edit { putBoolean("cloud_stats_synced_v1", false) }
-    }
-
-    private fun saveLastPlayedSong(song: Song) {
-        sharedPreferences?.edit {
-            putString("last_song_id", song.id)
-            putString("last_song_title", song.title)
-            putString("last_song_artist", song.artist)
-            putString("last_song_uri", song.uri)
-            putString("last_song_art_uri", song.artUri)
-            putLong("last_song_duration", song.duration)
-            putBoolean("last_song_is_streaming", song.isStreaming)
-            putString("last_song_folder", song.folderName)
-            putString("last_song_type", song.type)
-        }
-    }
-
-    private fun loadLastPlayedSong(): Song? {
-        val id = sharedPreferences?.getString("last_song_id", null) ?: return null
-        val title = sharedPreferences?.getString("last_song_title", "Unknown Track") ?: "Unknown Track"
-        val artist = sharedPreferences?.getString("last_song_artist", "Unknown Artist") ?: "Unknown Artist"
-        val uri = sharedPreferences?.getString("last_song_uri", "") ?: ""
-        val artUri = sharedPreferences?.getString("last_song_art_uri", null)
-        val duration = sharedPreferences?.getLong("last_song_duration", 0L) ?: 0L
-        val isStreaming = sharedPreferences?.getBoolean("last_song_is_streaming", false) ?: false
-        val folderName = sharedPreferences?.getString("last_song_folder", "Unknown") ?: "Unknown"
-        val type = sharedPreferences?.getString("last_song_type", "local") ?: "local"
-        return Song(
-            id = id, title = title, artist = artist, uri = uri, artUri = artUri,
-            duration = duration, isStreaming = isStreaming, folderName = folderName, type = type
-        )
+        persistenceManager?.resetCloudSyncFlag()
     }
 
     private fun addToRecentlyPlayed(song: Song) {
         if (song.id.isBlank()) return
         val matchIndex = recentlyPlayedSongs.indexOfFirst { it.id == song.id }
-        if (matchIndex != -1) {
-            recentlyPlayedSongs.removeAt(matchIndex)
-        }
+        if (matchIndex != -1) recentlyPlayedSongs.removeAt(matchIndex)
         recentlyPlayedSongs.add(0, song)
-        if (recentlyPlayedSongs.size > 20) {
-            recentlyPlayedSongs.removeAt(recentlyPlayedSongs.lastIndex)
-        }
+        if (recentlyPlayedSongs.size > 20) recentlyPlayedSongs.removeAt(recentlyPlayedSongs.lastIndex)
 
-        saveRecentlyPlayedToStorage()
-    }
-
-    private fun saveRecentlyPlayedToStorage() {
-        val jsonArray = JSONArray()
-        for (song in recentlyPlayedSongs) {
-            val jsonObject = JSONObject().apply {
-                put("id", song.id)
-                put("title", song.title)
-                put("artist", song.artist)
-                put("uri", song.uri)
-                put("artUri", song.artUri ?: "")
-                put("duration", song.duration)
-                put("isStreaming", song.isStreaming)
-                put("folderName", song.folderName)
-                put("type", song.type)
-            }
-            jsonArray.put(jsonObject)
-        }
-        sharedPreferences?.edit {
-            putString("recently_heard_songs_json", jsonArray.toString())
-        }
+        persistenceManager?.saveRecentlyPlayed(recentlyPlayedSongs)
     }
 
     private fun loadRecentlyPlayedFromStorage() {
-        val rawJson = sharedPreferences?.getString("recently_heard_songs_json", null) ?: return
-        try {
-            val jsonArray = JSONArray(rawJson)
-            val tempHistoryList = mutableListOf<Song>()
-            for (i in 0 until jsonArray.length()) {
-                val jsonObject = jsonArray.getJSONObject(i)
-                val artString = jsonObject.optString("artUri", "")
-                val resolvedArt = artString.ifBlank { null }
-
-                tempHistoryList.add(
-                    Song(
-                        id = jsonObject.getString("id"),
-                        title = jsonObject.getString("title"),
-                        artist = jsonObject.getString("artist"),
-                        uri = jsonObject.getString("uri"),
-                        artUri = resolvedArt,
-                        duration = jsonObject.getLong("duration"),
-                        isStreaming = jsonObject.getBoolean("isStreaming"),
-                        folderName = jsonObject.getString("folderName"),
-                        type = jsonObject.getString("type")
-                    )
-                )
-            }
+        persistenceManager?.let { pm ->
             recentlyPlayedSongs.clear()
-            recentlyPlayedSongs.addAll(tempHistoryList)
-        } catch (e: Exception) {
-            Log.e("RECENTLY_PLAYED_LOAD", "Corrupt history layer map parse index error", e)
+            recentlyPlayedSongs.addAll(pm.loadRecentlyPlayed())
         }
-    }
-
-    private fun savePlaylistsToStorage() {
-        val json = playlistController.getCustomPlaylistsJson()
-        sharedPreferences?.edit { putString("custom_playlists", json) }
     }
 
     fun clearAudioCache(context: Context) {
@@ -399,17 +249,11 @@ class MusicViewModel : ViewModel() {
             try {
                 val cacheDir = context.applicationContext.cacheDir
                 if (cacheDir.exists() && cacheDir.isDirectory) {
-                    cacheDir.listFiles()?.forEach { file ->
-                        file.deleteRecursively()
-                    }
+                    cacheDir.listFiles()?.forEach { file -> file.deleteRecursively() }
                 }
-
-                withContext(Dispatchers.Main) {
-                    cacheSizeText = "0.00 MB"
-                    Log.d("MuzixX_Cache", "Internal application audio stream cache cleared successfully.")
-                }
+                withContext(Dispatchers.Main) { cacheSizeText = "0.00 MB" }
             } catch (e: Exception) {
-                Log.e("MuzixX_Cache", "Failed to clear temporary audio cache layer buffers", e)
+                Log.e("MuzixX_Cache", "Failed to clear audio cache", e)
             }
         }
     }
@@ -421,14 +265,10 @@ class MusicViewModel : ViewModel() {
                 val cacheDir = context.applicationContext.cacheDir
                 var totalBytes = 0L
                 if (cacheDir.exists() && cacheDir.isDirectory) {
-                    cacheDir.walkTopDown().forEach { file ->
-                        if (file.isFile) totalBytes += file.length()
-                    }
+                    cacheDir.walkTopDown().forEach { if (it.isFile) totalBytes += it.length() }
                 }
                 val megaBytes = totalBytes.toDouble() / (1024 * 1024)
-                withContext(Dispatchers.Main) {
-                    cacheSizeText = String.format("%.2f MB", megaBytes)
-                }
+                withContext(Dispatchers.Main) { cacheSizeText = String.format("%.2f MB", megaBytes) }
             } catch (_: Exception) {
                 withContext(Dispatchers.Main) { cacheSizeText = "0.00 MB" }
             }
@@ -436,11 +276,10 @@ class MusicViewModel : ViewModel() {
     }
 
     fun updateAppTheme(themeName: String) {
-        if (isSettingsInitialized()) {
-            settings.updateAppTheme(themeName)
-        }
+        if (isSettingsInitialized()) settings.updateAppTheme(themeName)
     }
 
+    // Search & Content Fetching
     fun searchJioSaavn(query: String) {
         if (query.isBlank()) return
         saveSearchQuery(query)
@@ -449,17 +288,12 @@ class MusicViewModel : ViewModel() {
             try {
                 val response = withContext(Dispatchers.IO) { jioSaavnApiService.searchSongs(query) }
                 if (response.success) {
-                    val tracks = response.data?.songs ?: emptyList()
-                    val mappedTracks = tracks.map { it.toSong("JioSaavn Search Result") }
-
-                    withContext(Dispatchers.Main) {
-                        saavnSearchResults.clear()
-                        saavnSearchResults.addAll(mappedTracks)
-                    }
+                    val tracks = response.data?.songs?.map { it.toSong("JioSaavn Search Result") } ?: emptyList()
+                    saavnSearchResults.clear()
+                    saavnSearchResults.addAll(tracks)
                 }
-            } catch (e: Exception) {
-                Log.e("SAAVN_SEARCH_ERROR", "Search parsing failed: ${e.message}")
-                withContext(Dispatchers.Main) { saavnSearchResults.clear() }
+            } catch (_: Exception) {
+                saavnSearchResults.clear()
             } finally {
                 isSaavnLoading = false
             }
@@ -473,13 +307,10 @@ class MusicViewModel : ViewModel() {
             isSearchLoading = true
             try {
                 val scrapedResults = ytScraper.searchSongs(query.trim())
-                withContext(Dispatchers.Main) {
-                    searchResults.clear()
-                    searchResults.addAll(scrapedResults)
-                }
-            } catch (e: Exception) {
-                Log.e("YT_SEARCH_ERROR", "Failed pulling YouTube matches: ${e.message}", e)
-                withContext(Dispatchers.Main) { searchResults.clear() }
+                searchResults.clear()
+                searchResults.addAll(scrapedResults)
+            } catch (_: Exception) {
+                searchResults.clear()
             } finally {
                 isSearchLoading = false
             }
@@ -488,42 +319,28 @@ class MusicViewModel : ViewModel() {
 
     fun loadJioSaavnHomeContent() {
         if (isTrendingLoading || isNewReleasesLoading || isHindiHitLoading) return
-
         isTrendingLoading = true
         isNewReleasesLoading = true
         isHindiHitLoading = true
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val trendingDeferred = async(Dispatchers.IO) {
-                    try { jioSaavnApiService.getPlaylistDetails("110858205") } catch(_: Exception) { null }
-                }
-                val newReleasesDeferred = async(Dispatchers.IO) {
-                    try { jioSaavnApiService.getPlaylistDetails("47599074") } catch(_: Exception) { null }
-                }
-                val hindiHitsDeferred = async(Dispatchers.IO) {
-                    try { jioSaavnApiService.getPlaylistDetails("1134543272") } catch(_: Exception) { null }
-                }
+                val trendingDef = async { runCatching { jioSaavnApiService.getPlaylistDetails("110858205") }.getOrNull() }
+                val newRelDef = async { runCatching { jioSaavnApiService.getPlaylistDetails("47599074") }.getOrNull() }
+                val hindiHitsDef = async { runCatching { jioSaavnApiService.getPlaylistDetails("1134543272") }.getOrNull() }
 
-                val trendingSongsList = trendingDeferred.await()?.data?.songs?.map { it.toSong("JioSaavn Trending") } ?: emptyList()
-                val releasesSongsList = newReleasesDeferred.await()?.data?.songs?.map { it.toSong("JioSaavn New Releases") } ?: emptyList()
-                val hmList = hindiHitsDeferred.await()?.data?.songs?.map { it.toSong("Hindi Hits") } ?: emptyList()
+                val trending = trendingDef.await()?.data?.songs?.map { it.toSong("JioSaavn Trending") } ?: emptyList()
+                val newReleases = newRelDef.await()?.data?.songs?.map { it.toSong("JioSaavn New Releases") } ?: emptyList()
+                val hindiHits = hindiHitsDef.await()?.data?.songs?.map { it.toSong("Hindi Hits") } ?: emptyList()
 
                 withContext(Dispatchers.Main) {
-                    saavnTrendingSongs.clear()
-                    saavnTrendingSongs.addAll(trendingSongsList)
-                    saavnNewReleases.clear()
-                    saavnNewReleases.addAll(releasesSongsList)
-                    saavnHminiHits.clear()
-                    saavnHminiHits.addAll(hmList)
+                    saavnTrendingSongs.clear(); saavnTrendingSongs.addAll(trending)
+                    saavnNewReleases.clear(); saavnNewReleases.addAll(newReleases)
+                    saavnHminiHits.clear(); saavnHminiHits.addAll(hindiHits)
                 }
-            } catch (e: Exception) {
-                Log.e("SAAVN_HOME_ERROR", "Failed to load curated home grids: ${e.message}")
             } finally {
                 withContext(Dispatchers.Main) {
-                    isTrendingLoading = false
-                    isNewReleasesLoading = false
-                    isHindiHitLoading = false
+                    isTrendingLoading = false; isNewReleasesLoading = false; isHindiHitLoading = false
                 }
             }
         }
@@ -535,16 +352,11 @@ class MusicViewModel : ViewModel() {
             try {
                 val response = withContext(Dispatchers.IO) { jioSaavnApiService.searchPlaylists(query) }
                 if (response.success) {
-                    val playlistsFound = response.data?.results ?: emptyList()
-
-                    withContext(Dispatchers.Main) {
-                        saavnPlaylistSearchResults.clear()
-                        saavnPlaylistSearchResults.addAll(playlistsFound)
-                    }
+                    saavnPlaylistSearchResults.clear()
+                    saavnPlaylistSearchResults.addAll(response.data?.results ?: emptyList())
                 }
-            } catch (e: Exception) {
-                Log.e("SAAVN_PLAYLIST_ERROR", "Failed to lookup playlists: ${e.message}")
-                withContext(Dispatchers.Main) { saavnPlaylistSearchResults.clear() }
+            } catch (_: Exception) {
+                saavnPlaylistSearchResults.clear()
             }
         }
     }
@@ -558,15 +370,9 @@ class MusicViewModel : ViewModel() {
             try {
                 val response = withContext(Dispatchers.IO) { jioSaavnApiService.getPlaylistDetails(playlistId) }
                 if (response.success) {
-                    val tracks = response.data?.songs ?: emptyList()
-                    val mappedTracks = tracks.map { it.toSong("Cloud Playlist: $playlistName") }
-
-                    withContext(Dispatchers.Main) {
-                        currentCloudPlaylistSongs.addAll(mappedTracks)
-                    }
+                    val tracks = response.data?.songs?.map { it.toSong("Cloud Playlist: $playlistName") } ?: emptyList()
+                    currentCloudPlaylistSongs.addAll(tracks)
                 }
-            } catch (e: Exception) {
-                Log.e("SAAVN_PLAYL_ERROR", "Failed to fetch cloud playlist layout rows: ${e.message}")
             } finally {
                 isCloudPlaylistLoading = false
             }
@@ -588,9 +394,9 @@ class MusicViewModel : ViewModel() {
         }
     }
 
+    // Playback Controls & Autoplay Bridges
     fun playMusicCollection(songList: List<Song>, startIndex: Int) {
         if (songList.isEmpty() || startIndex !in songList.indices) return
-
         playerController.submitQueueToPlayer(songList, startIndex)
         currentPlaybackQueue = songList
     }
@@ -601,98 +407,36 @@ class MusicViewModel : ViewModel() {
 
     fun playSaavnSongWithYouTubeAutoplay(saavnList: List<Song>, startIndex: Int) {
         if (saavnList.isEmpty() || startIndex !in saavnList.indices) return
-
-        val clickedSaavnSong = saavnList[startIndex]
-        val isolatedQueue = mutableListOf(clickedSaavnSong)
-        playMusicCollection(isolatedQueue, 0)
+        val clickedSong = saavnList[startIndex]
+        playMusicCollection(listOf(clickedSong), 0)
 
         viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val queryBuilder = StringBuilder(clickedSaavnSong.title)
-                if (clickedSaavnSong.artist.isNotBlank() && clickedSaavnSong.artist.lowercase() != "unknown") {
-                    queryBuilder.append(" ").append(clickedSaavnSong.artist)
+            val recs = autoplayManager.fetchJioSaavnWithYouTubeRecommendations(clickedSong)
+            if (recs.isNotEmpty()) {
+                withContext(Dispatchers.Main) {
+                    playerController.injectTracksToQueue(recs)
+                    currentPlaybackQueue = playerController.activePlaybackQueue
                 }
-                val searchQuery = queryBuilder.toString().trim()
-
-                Log.d("SaavnYtBridge", "Searching YouTube for track matching: $searchQuery")
-
-                val ytSearchResults = ytScraper.searchSongs(searchQuery)
-
-                if (ytSearchResults.isNotEmpty()) {
-                    val firstYtMatch = ytSearchResults.first()
-                    val targetVideoId = firstYtMatch.id.replace("yt_", "").trim()
-
-                    Log.d("SaavnYtBridge", "Found YouTube match ($targetVideoId). Fetching related tracks...")
-
-                    val recommendations = ytExtractor.getRelatedSongsFromVideoId(targetVideoId)
-
-                    if (recommendations.isNotEmpty()) {
-                        val lowerTitle = clickedSaavnSong.title.lowercase().trim()
-                        val uniqueRecs = recommendations.filter { rec ->
-                            rec.title.lowercase().trim() != lowerTitle
-                        }
-
-                        withContext(Dispatchers.Main) {
-                            playerController.injectTracksToQueue(uniqueRecs)
-
-                            currentPlaybackQueue = playerController.activePlaybackQueue
-                            Log.d("SaavnYtBridge", "Clean queue setup complete. Appended ${uniqueRecs.size} YouTube tracks behind the isolated track.")
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("SaavnYtBridge", "Bridge failed to attach background recommendations cleanly", e)
             }
         }
     }
 
     fun playYouTubeSearchResultWithAutoplay(youtubeList: List<Song>, startIndex: Int) {
         if (youtubeList.isEmpty() || startIndex !in youtubeList.indices) return
-
         val clickedSong = youtubeList[startIndex]
 
-        viewModelScope.launch {
-            val finalQueue = mutableListOf(clickedSong)
-            val newStartIndex = 0
-
-            try {
-                val targetVideoId = clickedSong.id.replace("yt_", "").trim()
-                Log.d("VM_YT_AUTOPLAY", "Fetching native NewPipe recommendations for video ID: $targetVideoId")
-
-                val recommendations = ytExtractor.getRelatedSongsFromVideoId(targetVideoId)
-
-                if (recommendations.isNotEmpty()) {
-                    val targetNormalizedId = clickedSong.id.replace("yt_", "").trim()
-                    val targetLowerTitle = clickedSong.title.lowercase().trim()
-
-                    val uniqueRecs = recommendations.filter { rec ->
-                        val recNormalizedId = rec.id.replace("yt_", "").trim()
-                        val recLowerTitle = rec.title.lowercase().trim()
-
-                        val isSameTrack = recNormalizedId == targetNormalizedId || recLowerTitle == targetLowerTitle
-
-                        !isSameTrack
-                    }
-
-                    finalQueue.addAll(uniqueRecs)
-                    Log.d("VM_YT_AUTOPLAY", "Successfully appended ${uniqueRecs.size} high-quality NewPipe related tracks.")
-                }
-            } catch (e: Exception) {
-                Log.e("VM_YT_AUTOPLAY", "Native related item generation block failed cleanly", e)
-            }
-
+        viewModelScope.launch(Dispatchers.IO) {
+            val fullQueue = autoplayManager.fetchYouTubeAutoplayQueue(clickedSong)
             withContext(Dispatchers.Main) {
-                playMusicCollection(finalQueue, newStartIndex)
+                playMusicCollection(fullQueue, 0)
             }
         }
     }
 
-    //Eqz Settings
+    // Equalizer Controls
     fun setEqualizerPresetLive(presetIndex: Short) {
         if (isSettingsInitialized()) {
-            settings.updateEqPresetIndex(presetIndex.toInt()) { resolvedIndex ->
-                playerController.setEqualizerPreset(resolvedIndex)
-            }
+            settings.updateEqPresetIndex(presetIndex.toInt()) { playerController.setEqualizerPreset(it) }
         } else {
             playerController.setEqualizerPreset(presetIndex)
         }
@@ -700,9 +444,7 @@ class MusicViewModel : ViewModel() {
 
     fun setEqualizerEnabled(enabled: Boolean) {
         if (isSettingsInitialized()) {
-            settings.updateEqEnabled(enabled) { resolvedToggle ->
-                playerController.setEqualizerEnabled(resolvedToggle)
-            }
+            settings.updateEqEnabled(enabled) { playerController.setEqualizerEnabled(it) }
         } else {
             playerController.setEqualizerEnabled(enabled)
         }
@@ -710,9 +452,7 @@ class MusicViewModel : ViewModel() {
 
     fun setBandLevel(bandIndex: Int, dbValue: Float) {
         if (isSettingsInitialized()) {
-            settings.updateSingleBand(bandIndex, dbValue) { idx, db ->
-                playerController.setBandLevel(idx, db)
-            }
+            settings.updateSingleBand(bandIndex, dbValue) { idx, db -> playerController.setBandLevel(idx, db) }
         } else {
             playerController.setBandLevel(bandIndex, dbValue)
         }
@@ -720,9 +460,7 @@ class MusicViewModel : ViewModel() {
 
     fun setBassBoostEnabled(enabled: Boolean) {
         if (isSettingsInitialized()) {
-            settings.updateBassEnabled(enabled) { resolvedToggle ->
-                playerController.setBassBoostEnabled(resolvedToggle)
-            }
+            settings.updateBassEnabled(enabled) { playerController.setBassBoostEnabled(it) }
         } else {
             playerController.setBassBoostEnabled(enabled)
         }
@@ -730,48 +468,38 @@ class MusicViewModel : ViewModel() {
 
     fun setBassBoostStrength(strengthPercent: Float) {
         if (isSettingsInitialized()) {
-            settings.updateBassStrength(strengthPercent) { resolvedStrength ->
-                playerController.setBassBoostStrength(resolvedStrength)
-            }
+            settings.updateBassStrength(strengthPercent) { playerController.setBassBoostStrength(it) }
         } else {
             playerController.setBassBoostStrength(strengthPercent)
         }
     }
 
-    fun setMasterVolume(volumePercent: Float) {
-        playerController.setMasterVolume(volumePercent)
-    }
+    fun setMasterVolume(volumePercent: Float) = playerController.setMasterVolume(volumePercent)
 
+    // Search History
     fun loadSearchHistory() {
-        sharedPreferences?.getStringSet("search_history_set", emptySet())?.let { savedSet ->
+        persistenceManager?.let { pm ->
             searchHistory.clear()
-            searchHistory.addAll(savedSet.toList().reversed())
+            searchHistory.addAll(pm.loadSearchHistory())
         }
     }
 
     fun saveSearchQuery(query: String) {
         val trimmed = query.trim()
         if (trimmed.isBlank()) return
-
         val currentList = searchHistory.toMutableList()
         currentList.remove(trimmed)
         currentList.add(0, trimmed)
-
         val cappedList = if (currentList.size > 10) currentList.take(10) else currentList
 
         searchHistory.clear()
         searchHistory.addAll(cappedList)
-
-        sharedPreferences?.edit {
-            putStringSet("search_history_set", cappedList.toSet())
-        }
+        persistenceManager?.saveSearchHistory(cappedList)
     }
 
     fun deleteSearchQuery(query: String) {
         searchHistory.remove(query)
-        sharedPreferences?.edit {
-            putStringSet("search_history_set", searchHistory.toSet())
-        }
+        persistenceManager?.saveSearchHistory(searchHistory)
     }
 
     private fun handleQueueLookaheadAutoplay() {
@@ -782,41 +510,18 @@ class MusicViewModel : ViewModel() {
         if (currentIndex >= totalQueueLength - 2) {
             if (isSettingsInitialized() && settings.streamWifiOnly) {
                 applicationContext?.let { ctx ->
-                    if (!isWifiConnected(ctx)) {
-                        Log.d("INFINITE_AUTOPLAY", "Autoplay cancelled: Device is on cellular data.")
-                        return
-                    }
+                    if (!isWifiConnected(ctx)) return
                 }
             }
 
-            if (currentSong.id.all { it.isDigit() } || currentSong.artist.contains("JioSaavn") || currentSong.title.contains("JioSaavn")) {
-                viewModelScope.launch(Dispatchers.IO) {
-                    try {
-                        val response = jioSaavnApiService.getSongSuggestions(currentSong.id)
-                        val suggestedSongs = response.data?.songs?.map { it.toSong("Autoplay Suggestion") } ?: emptyList()
-                        withContext(Dispatchers.Main) { playerController.injectTracksToQueue(suggestedSongs) }
-                    } catch (e: Exception) {
-                        Log.e("INFINITE_AUTOPLAY", "Failed updating recommendations pipeline", e)
+            viewModelScope.launch(Dispatchers.IO) {
+                try {
+                    val nextTracks = autoplayManager.fetchNextLookaheadTracks(currentSong)
+                    if (nextTracks.isNotEmpty()) {
+                        withContext(Dispatchers.Main) { playerController.injectTracksToQueue(nextTracks) }
                     }
-                }
-            } else {
-                viewModelScope.launch(Dispatchers.IO) {
-                    try {
-                        val targetVideoId = currentSong.id.replace("yt_", "").trim()
-                        Log.d("INFINITE_YT_AUTOPLAY", "Fetching lookahead recommendations for: $targetVideoId")
-
-                        val relatedSongs = ytExtractor.getRelatedSongsFromVideoId(targetVideoId)
-                        if (relatedSongs.isNotEmpty()) {
-                            val uniqueRecs = relatedSongs.filter { rec ->
-                                rec.id.replace("yt_", "").trim() != targetVideoId
-                            }
-                            withContext(Dispatchers.Main) {
-                                playerController.injectTracksToQueue(uniqueRecs)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.e("INFINITE_YT_AUTOPLAY", "Failed updating related video queue", e)
-                    }
+                } catch (e: Exception) {
+                    Log.e("MusicViewModel", "Lookahead autoplay failed", e)
                 }
             }
         }
@@ -824,11 +529,9 @@ class MusicViewModel : ViewModel() {
 
     fun addSongToQueue(song: Song) {
         if (playerController.selectedSong == null) {
-            val isolatedCollection = listOf(song)
-            playMusicCollection(isolatedCollection, 0)
+            playMusicCollection(listOf(song), 0)
             return
         }
-
         playerController.addTrackImmediatelyNext(song)
         currentPlaybackQueue = playerController.activePlaybackQueue
     }
@@ -838,11 +541,10 @@ class MusicViewModel : ViewModel() {
         playerController.seekTo(position)
     }
 
-    fun togglePlayPause() {
-        playerController.togglePlayPause()
-    }
+    fun togglePlayPause() = playerController.togglePlayPause()
     fun playNext() = playerController.playNext()
     fun playPrevious() = playerController.playPrevious()
+    fun toggleRepeatMode() = playerController.cycleRepeatMode()
 
     fun updateSkipSilenceLive(enabled: Boolean) {
         if (isSettingsInitialized()) {
@@ -858,7 +560,7 @@ class MusicViewModel : ViewModel() {
         }
     }
 
-    //Playlist Controlling
+
     fun createCustomPlaylist(name: String) = playlistController.createCustomPlaylist(name)
     fun addSongToPlaylist(playlistId: String, song: Song) = playlistController.addSongToPlaylist(playlistId, song)
     fun removeSongFromPlaylist(playlistId: String, song: Song) = playlistController.removeSongFromPlaylist(playlistId, song)
@@ -869,19 +571,11 @@ class MusicViewModel : ViewModel() {
         viewModelScope.launch { UpdateChecker.check(context, isManualCheck = true) }
     }
 
-    fun preloadYouTubeStream(videoId: String) {
-        ytExtractor.preloadStream(videoId)
-    }
+    fun preloadYouTubeStream(videoId: String) = ytExtractor.preloadStream(videoId)
 
     override fun onCleared() {
         super.onCleared()
-        if (::stats.isInitialized) {
-            stats.stopPlaybackTimer()
-        }
+        if (::stats.isInitialized) stats.stopPlaybackTimer()
         playerController.release()
-    }
-
-    fun toggleRepeatMode() {
-        playerController.cycleRepeatMode()
     }
 }
