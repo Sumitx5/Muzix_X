@@ -16,8 +16,8 @@ android {
         applicationId = "com.sumit.muzixx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "1.3.3"
+        versionCode = 7
+        versionName = "1.3.4"
         multiDexEnabled = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -135,7 +135,6 @@ configurations.all {
     }
 }
 
-// 🧩 Link generated classes directly into IDE model to fix red-line markers permanently
 android.applicationVariants.all {
     addJavaSourceFoldersToModel(
         file("${project.layout.buildDirectory.get().asFile}/generated/source/proto/$name/java")
