@@ -52,7 +52,7 @@ fun HomeNavigationDrawer(
                     DrawerProfileItem(userName = userName, onClick = onProfileClick)
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 0.dp),
+                        modifier = Modifier.padding(vertical = 4.dp),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                     )
 

@@ -313,9 +313,8 @@ fun LibrarySongItem(
                 DropdownMenu(
                     expanded = showSongMenu,
                     onDismissRequest = { showSongMenu = false },
-                    modifier = Modifier
-                        .background(Color.Transparent)
-                        .glassEffect(RoundedCornerShape(6.dp))
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                 ) {
                     DropdownMenuItem(
                         text = { Text("Add to Playlist") },
@@ -460,9 +459,8 @@ fun PlaylistRootListView(
                                     DropdownMenu(
                                         expanded = playlistPendingActionsMenu?.id == playlist.id,
                                         onDismissRequest = onMenuDismiss,
-                                        modifier = Modifier
-                                            .glassEffect(RoundedCornerShape(16.dp))
-                                            .background(Color.Transparent)
+                                        containerColor = Color.Transparent,
+                                        modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                                     ) {
                                         DropdownMenuItem(
                                             text = { Text("Rename Playlist") },

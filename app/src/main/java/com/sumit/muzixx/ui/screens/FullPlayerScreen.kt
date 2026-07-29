@@ -279,9 +279,8 @@ fun FullPlayerScreen(
                         DropdownMenu(
                             expanded = showOptionsMenu,
                             onDismissRequest = { showOptionsMenu = false },
-                            modifier = Modifier
-                                .glassEffect(RoundedCornerShape(6.dp))
-                                .background(Color.Transparent)
+                            containerColor = Color.Transparent,
+                            modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                         ) {
                             DropdownMenuItem(
                                 text = { Text("About Song", fontWeight = FontWeight.Medium) },
@@ -521,7 +520,9 @@ fun FullPlayerScreen(
 
                 IconButton(
                     onClick = { viewModel.playNext() },
-                    modifier = Modifier.size(56.dp).glassEffect(RoundedCornerShape(16.dp))
+                    modifier = Modifier
+                        .size(56.dp)
+                        .glassEffect(RoundedCornerShape(16.dp))
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
@@ -587,8 +588,8 @@ fun FullPlayerScreen(
             ModalBottomSheet(
                 onDismissRequest = { showPlaylistDialog = false },
                 sheetState = sheetState,
-                containerColor = MaterialTheme.colorScheme.background,
-                dragHandle = { BottomSheetDefaults.DragHandle(color = MaterialTheme.colorScheme.onSurface) }
+                containerColor = Color.Transparent,
+                dragHandle = {  }
             ) {
                 PlaylistSelectorContent(
                     song = song,

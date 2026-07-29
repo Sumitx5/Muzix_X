@@ -235,8 +235,8 @@ fun SearchScreen(
         if (activeSongForPlaylist != null) {
             ModalBottomSheet(
                 onDismissRequest = { activeSongForPlaylist = null },
-                containerColor = MaterialTheme.colorScheme.background,
-                dragHandle = { BottomSheetDefaults.DragHandle(color = Color.White.copy(alpha = 0.2f)) }
+                containerColor = Color.Transparent,
+                dragHandle = {  }
             ) {
                 PlaylistSelectorContent(
                     song = activeSongForPlaylist,
@@ -476,7 +476,10 @@ fun SongResultsList(
                     DropdownMenu(
                         expanded = expandedMenuIndex == index,
                         onDismissRequest = { expandedMenuIndex = null },
-                        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+                        containerColor = Color.Transparent,
+                        tonalElevation = 0.dp,
+                        shadowElevation = 0.dp,
+                        modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                     ) {
                         DropdownMenuItem(
                             text = { Text("Add to Playlist", fontWeight = FontWeight.Medium) },
