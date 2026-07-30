@@ -17,6 +17,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Pause
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
@@ -79,6 +81,15 @@ fun FullPlayerScreen(
     val accentColor = MaterialTheme.colorScheme.primary
     val defaultAccent = MaterialTheme.colorScheme.surfaceContainerHighest
     var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
+
+    val likedPlaylist = viewModel.playlists.find {
+        it.name.equals("Liked Songs", ignoreCase = true) || it.id == "liked_songs"
+    }
+    val isLiked by remember(likedPlaylist, song) {
+        derivedStateOf {
+            song != null && likedPlaylist?.songs?.any { it.id == song.id } == true
+        }
+    }
 
     val animatedAccentColor by animateColorAsState(
         targetValue = dynamicAccentColor,
@@ -558,6 +569,54 @@ fun FullPlayerScreen(
                     contentDescription = "Cycle Playback Loop Repeat Settings",
                     tint = tint,
                     modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        song?.let { currentTrack ->
+                            val targetPlaylist = likedPlaylist ?: run {
+                                viewModel.createPlaylist("Liked Songs")
+                                viewModel.playlists.find {
+                                    it.name.equals("Liked Songs", ignoreCase = true) || it.id == "liked_songs"
+                                }
+                            }
+
+                            targetPlaylist?.let { playlist ->
+                                if (isLiked) {
+                                    viewModel.removeSongFromPlaylist(playlist.id, currentTrack)
+                                    Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    viewModel.addSongToPlaylist(playlist.id, currentTrack)
+                                    Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }
+                    },
+                    modifier = Modifier.glassEffect(CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Favorite,
+                        contentDescription = if (isLiked) "Removed from Liked Songs" else "Add to Liked Songs",
+                        tint = if (isLiked) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = {
+                        showOptionsMenu = false
+                        if (song != null) {
+                            showPlaylistDialog = true
+                        }
+                    },
+                    modifier = Modifier.glassEffect(CircleShape)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
+                        contentDescription = "Add to Playlist",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
