@@ -31,12 +31,12 @@ fun MuzixBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(bottom = 10.dp),
+            .padding(bottom = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 14.dp)
+                .padding(horizontal = 16.dp)
                 .fillMaxWidth()
                 .shadow(
                     elevation = 10.dp,
@@ -45,7 +45,7 @@ fun MuzixBottomBar(
                     ambientColor = Color.Black.copy(alpha = 0.15f),
                     spotColor = Color.Black.copy(alpha = 0.25f)
                 )
-                .glassEffect(shape = RoundedCornerShape(20.dp))
+                .glassEffect(shape = RoundedCornerShape(16.dp))
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
@@ -94,7 +94,7 @@ private fun MuzixCapsuleItem(
     }
 
     val containerColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
     } else {
         Color.Transparent
     }
@@ -102,7 +102,7 @@ private fun MuzixCapsuleItem(
     Box(
         modifier = Modifier
             .fillMaxWidth(0.9f)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(containerColor)
             .clickable { onClick() }
             .padding(vertical = 10.dp),
