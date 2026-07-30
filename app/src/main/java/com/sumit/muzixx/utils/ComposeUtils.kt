@@ -29,27 +29,28 @@ fun Modifier.glassEffect(shape: Shape): Modifier {
         .background(
             Brush.verticalGradient(
                 colors = listOf(
-                    surfaceColor.copy(alpha = 0.86f),
-                    surfaceColor.copy(alpha = 0.82f),
-                    surfaceColor.copy(alpha = 0.84f)
+                    surfaceColor.copy(alpha = 0.92f),
+                    surfaceColor.copy(alpha = 0.88f),
+                    surfaceColor.copy(alpha = 0.90f)
                 )
             )
         )
         .background(
             Brush.linearGradient(
                 colors = listOf(
-                    Color.White.copy(alpha = 0.05f),
-                    Color.Transparent,
-                    Color.Black.copy(alpha = 0.03f)
+                    Color.White.copy(alpha = 0.16f),
+                    Color.White.copy(alpha = 0.04f),
+                    Color.Black.copy(alpha = 0.08f)
                 )
             )
         )
         .border(
             width = 1.dp,
-            brush = Brush.verticalGradient(
+            brush = Brush.linearGradient(
                 colors = listOf(
-                    borderColor.copy(alpha = 0.22f),
-                    borderColor.copy(alpha = 0.06f)
+                    borderColor.copy(alpha = 0.40f),
+                    borderColor.copy(alpha = 0.15f),
+                    borderColor.copy(alpha = 0.05f)
                 )
             ),
             shape = shape
