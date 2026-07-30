@@ -49,7 +49,7 @@ fun UpdateDialog() {
                     Text(
                         text = when {
                             UpdateChecker.isUpdateChecking -> "Checking for updates..."
-                            isUpToDate -> "You are Already Updated"
+                            isUpToDate -> "Already Updated"
                             else -> "New Update Available!"
                         },
                         style = MaterialTheme.typography.headlineSmall,
@@ -103,7 +103,7 @@ fun UpdateDialog() {
                                 Button(
                                     onClick = {
                                         UpdateChecker.dismissDialog()
-                                        uriHandler.openUri("https://github.com/Sumit282698/Muzix_X/releases")
+                                        uriHandler.openUri("https://github.com/Sumit282698/Muzix_X/releases/latest")
                                     }
                                 ) {
                                     Text("Download")

@@ -107,7 +107,7 @@ object UpdateChecker {
                     showUpdateDialog = true
                 } else {
                     isUpdateAvailable = false
-                    updateStatusMessage = "MuzixX is up to date ($localVersionNumbers)."
+                    updateStatusMessage = "MuzixX is already up to date!\n\nYou are Using the Latest Stable Build. \nLatest Version: $localVersionNumbers"
                     if (isManualCheck) showUpdateDialog = true
                 }
             } else {
