@@ -5,8 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.data.Playlist
 import com.sumit.muzixx.data.Song
@@ -32,7 +30,6 @@ fun LibraryScreen(
     val currentPlaylist = viewModel.selectedPlaylist
     val isPlayerActive = viewModel.selectedSong != null
     val dynamicallyCalculatedBottomPadding = if (isPlayerActive) 144.dp else 24.dp
-    val accentColor = MaterialTheme.colorScheme.primary
 
     val executeAutoRoutedPlayback: (List<Song>, Int) -> Unit = { targetedList, indexPointer ->
         if (targetedList.isNotEmpty() && indexPointer in targetedList.indices) {
@@ -55,15 +52,6 @@ fun LibraryScreen(
             modifier = modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
-                .background(
-                    Brush.verticalGradient(
-                        colors = listOf(
-                            accentColor.copy(alpha = 0.08f),
-                            Color.Transparent
-                        ),
-                        endY = 600f
-                    )
-                )
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 if (currentPlaylist != null) {

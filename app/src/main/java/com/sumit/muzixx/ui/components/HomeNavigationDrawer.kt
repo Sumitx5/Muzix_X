@@ -3,6 +3,7 @@ package com.sumit.muzixx.ui.components
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Api
@@ -52,7 +53,7 @@ fun HomeNavigationDrawer(
                     DrawerProfileItem(userName = userName, onClick = onProfileClick)
 
                     HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
+                        modifier = Modifier.padding(vertical = 4.dp).glassEffect(RoundedCornerShape(16.dp)),
                         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                     )
 
@@ -96,7 +97,7 @@ private fun DrawerProfileItem(
             .fillMaxWidth()
             .clip(MaterialTheme.shapes.medium)
             .clickable { onClick() }
-            .padding(2.dp),
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(

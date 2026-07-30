@@ -30,7 +30,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -74,8 +73,6 @@ fun PlaylistDetailView(
     onSongActionClick: (Song) -> Unit,
     onBackClick: () -> Unit
 ) {
-    val accentColor = MaterialTheme.colorScheme.primary
-
     BackHandler {
         viewModel.selectedPlaylist = null
         onBackClick()
@@ -88,12 +85,6 @@ fun PlaylistDetailView(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent),
-                    endY = 600f
-                )
-            )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
@@ -365,18 +356,10 @@ fun PlaylistRootListView(
     onRenameTrigger: () -> Unit,
     onDeleteTrigger: (String) -> Unit
 ) {
-    val accentColor = MaterialTheme.colorScheme.primary
-
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(accentColor.copy(alpha = 0.08f), Color.Transparent),
-                    endY = 600f
-                )
-            )
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
@@ -455,7 +438,16 @@ fun PlaylistRootListView(
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                }
+                            }
 
+                            if (!isSystemPlaylist) {
+                                IconButton(onClick = { onPlaylistLongClick(playlist) }) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.MoreVert,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                     DropdownMenu(
                                         expanded = playlistPendingActionsMenu?.id == playlist.id,
                                         onDismissRequest = onMenuDismiss,
@@ -484,16 +476,6 @@ fun PlaylistRootListView(
                                             }
                                         )
                                     }
-                                }
-                            }
-
-                            if (!isSystemPlaylist) {
-                                IconButton(onClick = { onPlaylistLongClick(playlist) }) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.MoreVert,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
                                 }
                             }
                         }

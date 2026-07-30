@@ -128,7 +128,7 @@ fun EqualizerPage(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glassEffect(shape = RoundedCornerShape(28.dp))
+                    .glassEffect(shape = RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
                 Column {
@@ -282,7 +282,7 @@ fun EqualizerPage(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .glassEffect(shape = RoundedCornerShape(24.dp))
+                    .glassEffect(shape = RoundedCornerShape(16.dp))
                     .padding(20.dp)
             ) {
                 Row(
@@ -324,7 +324,7 @@ fun ExpressiveVerticalSliderCard(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .glassEffect(shape = RoundedCornerShape(24.dp))
+            .glassEffect(shape = RoundedCornerShape(16.dp))
             .padding(12.dp)
     ) {
         Column(

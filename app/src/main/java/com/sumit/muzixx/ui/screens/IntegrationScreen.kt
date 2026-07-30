@@ -118,6 +118,8 @@ fun IntegrationScreen(
                 AlertDialog(
                     onDismissRequest = { if (!isImporting) showSpotifyDialog = false },
                     title = { Text("Import Spotify Playlist") },
+                    containerColor = Color.Transparent,
+                    modifier = Modifier.glassEffect(RoundedCornerShape(16.dp)),
                     text = {
                         Column {
                             Text(
