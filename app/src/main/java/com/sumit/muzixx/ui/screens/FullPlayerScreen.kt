@@ -339,22 +339,6 @@ fun FullPlayerScreen(
                                 }
                             )
 
-                            DropdownMenuItem(
-                                text = { Text("Add to Playlist", fontWeight = FontWeight.Medium) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    if (song != null) {
-                                        showPlaylistDialog = true
-                                    }
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Rounded.LibraryAdd,
-                                        contentDescription = null
-                                    )
-                                }
-                            )
-
                             if (currentSong?.type == "yt" || currentSong?.type == "saavn") {
                                 DropdownMenuItem(
                                     text = { Text("Download", fontWeight = FontWeight.Medium) },
@@ -402,7 +386,7 @@ fun FullPlayerScreen(
                                                         type = "text/plain"
                                                         putExtra(
                                                             android.content.Intent.EXTRA_TEXT,
-                                                            "🎵 Now playing *${song.title}* on MuzixX:\n\n$shareUrl"
+                                                            "🎵 Hear *${song.title}* on MuzixX:\n\n$shareUrl"
                                                         )
                                                     }
                                             context.startActivity(
