@@ -30,7 +30,6 @@ import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.LibraryAdd
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -76,8 +75,6 @@ fun FullPlayerScreen(
     val context = LocalContext.current
     val song = viewModel.selectedSong
     val repeatMode = viewModel.currentRepeatMode
-
-    // Theme Bindings
     val accentColor = MaterialTheme.colorScheme.primary
     val defaultAccent = MaterialTheme.colorScheme.surfaceContainerHighest
     var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
@@ -97,7 +94,7 @@ fun FullPlayerScreen(
         label = "DynamicThemeAccent"
     )
 
-    // Animated Scale Trigger (Play/Pause)
+    //Animated Scale Trigger (Play/Pause)
     val playPauseScale by animateFloatAsState(
         targetValue = if (viewModel.isPlaying) 1.0f else 0.94f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
@@ -117,6 +114,7 @@ fun FullPlayerScreen(
         }
     }
 
+    //Loads Content On app screen Launch
     LaunchedEffect(song?.artUri) {
         if (song?.artUri != null) {
             withContext(Dispatchers.IO) {
@@ -178,6 +176,7 @@ fun FullPlayerScreen(
         label = "PlayerSpringDismiss"
     )
 
+    //Main Content Adjustments
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -225,7 +224,6 @@ fun FullPlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // TOP DISMISS HANDLE
             Box(
                 modifier = Modifier
                     .padding(top = 4.dp, bottom = 12.dp)
@@ -235,7 +233,7 @@ fun FullPlayerScreen(
                     .glassEffect(RoundedCornerShape(16.dp))
             )
 
-            // ALBUM ART
+            //Song Thumbnail(Art)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -267,7 +265,7 @@ fun FullPlayerScreen(
                         contentScale = ContentScale.Crop
                     )
 
-                    // Information
+                    //Info About Song
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -291,6 +289,7 @@ fun FullPlayerScreen(
                             expanded = showOptionsMenu,
                             onDismissRequest = { showOptionsMenu = false },
                             containerColor = Color.Transparent,
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                         ) {
                             DropdownMenuItem(

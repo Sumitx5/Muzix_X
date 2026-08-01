@@ -52,7 +52,7 @@ fun MiniPlayer(
                 ambientColor = Color.Black.copy(alpha = 0.2f),
                 spotColor = Color.Black.copy(alpha = 0.35f)
             )
-            .glassEffect(shape = RoundedCornerShape(16.dp))
+            .glassEffect(shape = RoundedCornerShape(20.dp))
             .clickable { onMiniPlayerClick() }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
