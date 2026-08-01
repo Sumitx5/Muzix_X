@@ -477,6 +477,7 @@ fun SongResultsList(
                         expanded = expandedMenuIndex == index,
                         onDismissRequest = { expandedMenuIndex = null },
                         containerColor = Color.Transparent,
+                        shape = RoundedCornerShape(16.dp),
                         tonalElevation = 0.dp,
                         shadowElevation = 0.dp,
                         modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))

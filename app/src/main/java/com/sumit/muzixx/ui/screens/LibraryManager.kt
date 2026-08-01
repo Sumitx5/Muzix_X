@@ -305,6 +305,7 @@ fun LibrarySongItem(
                     expanded = showSongMenu,
                     onDismissRequest = { showSongMenu = false },
                     containerColor = Color.Transparent,
+                    shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                 ) {
                     DropdownMenuItem(
@@ -401,7 +402,7 @@ fun PlaylistRootListView(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .glassEffect(RoundedCornerShape(16.dp))
+                            .glassEffect(RoundedCornerShape(20.dp))
                     ) {
                         Row(
                             modifier = Modifier
@@ -451,6 +452,7 @@ fun PlaylistRootListView(
                                     DropdownMenu(
                                         expanded = playlistPendingActionsMenu?.id == playlist.id,
                                         onDismissRequest = onMenuDismiss,
+                                        shape = RoundedCornerShape(16.dp),
                                         containerColor = Color.Transparent,
                                         modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
                                     ) {
