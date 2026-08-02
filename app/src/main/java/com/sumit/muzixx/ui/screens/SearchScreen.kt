@@ -62,7 +62,7 @@ fun SearchScreen(
     val hasYoutubeData by remember { derivedStateOf { youtubeResults.isNotEmpty() } }
 
     val isPlayerActive = viewModel.selectedSong != null
-    val bottomPadding = if (isPlayerActive) 92.dp else 24.dp
+    val bottomPadding = if (isPlayerActive) 144.dp else 50.dp
 
     val searchRecommendations by remember(searchQuery) {
         derivedStateOf {
