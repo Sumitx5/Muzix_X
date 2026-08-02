@@ -16,8 +16,8 @@ android {
         applicationId = "com.sumit.muzixx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.3.4"
+        versionCode = 25
+        versionName = "1.3.5"
         multiDexEnabled = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -93,6 +93,7 @@ dependencies {
     implementation("androidx.palette:palette-ktx:1.0.0")
     implementation("com.google.code.gson:gson:2.14.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("androidx.core:core-splashscreen:1.0.1")
 
     // Protobuf Runtime Engines
     implementation("com.google.protobuf:protobuf-javalite:3.25.1")
