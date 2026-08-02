@@ -241,18 +241,19 @@ fun HomeScreen(
                         }
                     }
 
-                    item(key="nothing"){}
-
                     // Recommended Songs
-                    if (recommendedSongs.isNotEmpty() || viewModel.isRecommendationsLoading) {
-                        item(key = "song_recomends") {
+                    item(key = "song_recomends") {
+                        if (recommendedSongs.isNotEmpty() || viewModel.isRecommendationsLoading) {
                             SongSection(
                                 title = "Recommended For You",
                                 songs = recommendedSongs,
                                 isLoading = viewModel.isRecommendationsLoading,
                                 isGrid = true,
                                 onClick = { index ->
-                                    viewModel.playYouTubeSearchResultWithAutoplay(recommendedSongs, index)
+                                    viewModel.playYouTubeSearchResultWithAutoplay(
+                                        recommendedSongs,
+                                        index
+                                    )
                                 }
                             )
                         }
