@@ -424,7 +424,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             isYouTubeTrendingLoading = true
             try {
                 val trendingResults = withContext(Dispatchers.IO) {
-                    ytScraper.searchSongs("Top Trending Official Songs Music")
+                    ytScraper.searchSongs("Trending Today Official Songs")
                 }
 
                 val topTrending = trendingResults.take(10)
