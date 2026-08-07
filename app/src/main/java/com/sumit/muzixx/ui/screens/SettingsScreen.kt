@@ -326,7 +326,7 @@ fun SettingsScreen(
             modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
             onDismissRequest = { showThemeDialog = false },
             shape = RoundedCornerShape(24.dp),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = Color.Transparent,
             title = {
                 Text(
                     text = "Select Accent Color",
@@ -385,7 +385,7 @@ fun SettingsScreen(
             modifier = Modifier.glassEffect(RoundedCornerShape(24.dp)),
             onDismissRequest = { showQualityDialog = false },
             shape = RoundedCornerShape(24.dp),
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            containerColor = Color.Transparent,
             title = {
                 Text(
                     text = "Streaming Quality",
