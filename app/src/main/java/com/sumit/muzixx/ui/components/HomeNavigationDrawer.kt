@@ -8,6 +8,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Api
 import androidx.compose.material.icons.rounded.Headphones
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.*
@@ -30,6 +31,7 @@ fun HomeNavigationDrawer(
     onSettingsClick: () -> Unit,
     onIntegrationsClick: () -> Unit,
     onListenTogetherClick: () -> Unit,
+    onPermClick: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val context = LocalContext.current
@@ -58,12 +60,6 @@ fun HomeNavigationDrawer(
                     )
 
                     DrawerItem(
-                        text = "Check Updates",
-                        icon = Icons.Rounded.Update,
-                        onClick = onCheckUpdatesClick
-                    )
-
-                    DrawerItem(
                         text = "Integrations",
                         icon = Icons.Rounded.Api,
                         onClick = onIntegrationsClick
@@ -72,7 +68,19 @@ fun HomeNavigationDrawer(
                     DrawerItem(
                         text = "Listen Together",
                         icon = Icons.Rounded.Headphones,
-                        onClick = { Toast.makeText(context, "Coming Soon...", Toast.LENGTH_SHORT).show() }
+                        onClick = { Toast.makeText(context, "Coming Soon", Toast.LENGTH_SHORT).show() }
+                    )
+
+                    DrawerItem(
+                        text = "Check Updates",
+                        icon = Icons.Rounded.Update,
+                        onClick = onCheckUpdatesClick
+                    )
+
+                    DrawerItem(
+                        text = "Permissions",
+                        icon = Icons.Rounded.Key,
+                        onClick = onPermClick
                     )
 
                     DrawerItem(

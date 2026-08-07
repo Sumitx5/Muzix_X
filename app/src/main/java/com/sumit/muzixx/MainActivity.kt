@@ -92,7 +92,7 @@ class MainActivity : ComponentActivity() {
                 var showFullPlayer by remember { mutableStateOf(false) }
 
                 val selectedSong = musicViewModel.selectedSong
-                val isFullScreenView = currentScreen == "Profile" || currentScreen == "Settings" || currentScreen == "Integration" || currentScreen == "ListenTogether"
+                val isFullScreenView = currentScreen == "Profile" || currentScreen == "Settings" || currentScreen == "Integration" || currentScreen == "ListenTogether" || currentScreen == "PermissionsScreen"
 
                 val view = androidx.compose.ui.platform.LocalView.current
                 if (!view.isInEditMode) {
@@ -219,7 +219,8 @@ class MainActivity : ComponentActivity() {
                                             onProfileClick = { currentScreen = "Profile" },
                                             onSettingsClick = { currentScreen = "Settings" },
                                             onIntegrationClick = { currentScreen = "Integration" },
-                                            onListenTogetherClick = { currentScreen = "ListenTogether" }
+                                            onListenTogetherClick = { currentScreen = "ListenTogether" },
+                                            onPermClick = { currentScreen = "PermissionsScreen"}
                                         )
                                         "Search" -> SearchScreen(viewModel = musicViewModel)
                                         "Library" -> LibraryScreen(viewModel = musicViewModel)
@@ -239,6 +240,10 @@ class MainActivity : ComponentActivity() {
                                             modifier = Modifier.fillMaxSize()
                                         )
                                         "ListenTogether" -> {}
+                                        "PermissionsScreen" -> PermissionsScreen(
+                                            onBackClick = { currentScreen = "Home"},
+                                            modifier = Modifier.fillMaxSize()
+                                        )
                                     }
                                 }
                             }

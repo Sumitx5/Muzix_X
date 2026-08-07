@@ -53,6 +53,7 @@ fun HomeScreen(
     onSettingsClick: () -> Unit,
     onIntegrationClick: () -> Unit,
     onListenTogetherClick: () -> Unit,
+    onPermClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val scope = rememberCoroutineScope()
@@ -157,6 +158,10 @@ fun HomeScreen(
         onListenTogetherClick = {
             scope.launch { drawerState.close() }
             onListenTogetherClick()
+        },
+        onPermClick = {
+            scope.launch { drawerState.close() }
+            onPermClick()
         },
         userName = currentUserName
     ) {
