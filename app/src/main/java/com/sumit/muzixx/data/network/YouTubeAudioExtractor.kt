@@ -8,10 +8,10 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.StreamInfo
-import java.net.HttpURLConnection
-import java.net.URL
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 
 @Suppress("DEPRECATION")
 class YouTubeAudioExtractor {
@@ -23,30 +23,58 @@ class YouTubeAudioExtractor {
     private val preloadScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     data class PreloadedData(
+        val title: String,
+        val artist: String,
         val streamUrl: String,
         val artworkUrl: String,
-        val durationMs: Long
+        val durationMs: Long,
+        val quality: String
     )
 
-    fun preloadStream(videoId: String) {
-        val sanitizedId = videoId.replace("yt_", "").trim()
+    private fun sanitizeId(id: String): String {
+        return id.replace("yt_", "").trim()
+    }
+
+    private fun selectAudioStream(audioStreams: List<AudioStream>?, qualityPref: String): String? {
+        if (audioStreams.isNullOrEmpty()) return null
+
+        val validStreams = audioStreams.filter { !it.url.isNullOrBlank() }
+        if (validStreams.isEmpty()) return null
+
+        val normalizedPref = qualityPref.lowercase()
+
+        return when {
+            normalizedPref.contains("320") || normalizedPref.contains("high") -> {
+                validStreams.maxByOrNull { it.bitrate }?.url
+            }
+            normalizedPref.contains("96") || normalizedPref.contains("low") -> {
+                validStreams.filter { it.bitrate >= 32000 }.minByOrNull { it.bitrate }?.url
+                    ?: validStreams.minByOrNull { it.bitrate }?.url
+            }
+            else -> {
+                val targetBitrate = 128000
+                validStreams.minByOrNull { abs(it.bitrate - targetBitrate) }?.url
+            }
+        }
+    }
+
+    fun preloadStream(videoId: String, qualityPref: String = "160kbps") {
+        val sanitizedId = sanitizeId(videoId)
         if (sanitizedId.isBlank()) return
 
-        if (preloadedStreamCache.containsKey(sanitizedId)) {
-            Log.d(TAG, "ID $sanitizedId already cached. Skipping background fetch.")
+        val cached = preloadedStreamCache[sanitizedId]
+        if (cached != null) {
+            Log.d(TAG, "ID $sanitizedId already cached in memory. Skipping preload.")
             return
         }
 
         preloadScope.launch {
             try {
-                Log.d(TAG, "[PRELOAD START] Requesting network scrape for: $sanitizedId")
+                Log.d(TAG, "[PRELOAD START] Requesting network scrape for: $sanitizedId (Quality: $qualityPref)")
                 val url = "https://www.youtube.com/watch?v=$sanitizedId"
                 val info = StreamInfo.getInfo(ServiceList.YouTube, url)
 
-                var targetStreamUrl = info.audioStreams
-                    ?.filter { !it.url.isNullOrBlank() }
-                    ?.maxByOrNull { it.bitrate }
-                    ?.url
+                var targetStreamUrl = selectAudioStream(info.audioStreams, qualityPref)
 
                 if (targetStreamUrl.isNullOrBlank()) {
                     targetStreamUrl = info.videoStreams
@@ -56,20 +84,19 @@ class YouTubeAudioExtractor {
                 }
 
                 if (!targetStreamUrl.isNullOrBlank()) {
-                    val artworkUrl = if (info.thumbnails.isNotEmpty()) {
-                        checkThumbnailUrl(sanitizedId)
-                    } else {
-                        "https://img.youtube.com/vi/$sanitizedId/hqdefault.jpg"
-                    }
+                    val artworkUrl = "https://img.youtube.com/vi/$sanitizedId/hqdefault.jpg"
 
                     preloadedStreamCache[sanitizedId] = PreloadedData(
+                        title = info.name ?: "Unknown Track",
+                        artist = info.uploaderName ?: "Unknown Artist",
                         streamUrl = targetStreamUrl,
                         artworkUrl = artworkUrl,
-                        durationMs = info.duration * 1000L
+                        durationMs = info.duration * 1000L,
+                        quality = qualityPref
                     )
-                    Log.d(TAG, "[PRELOAD SUCCESS] Cache filled for ID: $sanitizedId (Total Cached: ${preloadedStreamCache.size})")
+                    Log.d(TAG, "[PRELOAD SUCCESS] Cache filled for ID: $sanitizedId")
                 } else {
-                    Log.e(TAG, "[PRELOAD FAILED] Scrape completed but found no playable streams for: $sanitizedId")
+                    Log.e(TAG, "[PRELOAD FAILED] No stream found for: $sanitizedId")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "[PRELOAD ERROR] Failed background fetch for video $sanitizedId: ${e.message}")
@@ -90,43 +117,33 @@ class YouTubeAudioExtractor {
         return nonMusicKeywords.any { lowerTitle.contains(it) } || nonMusicChannels.any { lowerChannel.contains(it) }
     }
 
-    private fun checkThumbnailUrl(videoId: String): String {
-        return try {
-            val maxResUrl = "https://img.youtube.com/vi/$videoId/maxresdefault.jpg"
-            val connection = URL(maxResUrl).openConnection() as HttpURLConnection
-            connection.requestMethod = "HEAD"
-            connection.connectTimeout = 800
-            connection.readTimeout = 800
-            val responseCode = connection.responseCode
-            connection.disconnect()
-            if (responseCode == HttpURLConnection.HTTP_OK) maxResUrl else "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
-        } catch (_: Exception) {
-            "https://img.youtube.com/vi/$videoId/hqdefault.jpg"
-        }
-    }
-
-    suspend fun getSongFromVideoId(videoIdOrQuery: String): Song? = withContext(Dispatchers.IO) {
+    suspend fun getSongFromVideoId(
+        videoIdOrQuery: String,
+        qualityPref: String = "160kbps",
+        originalTitle: String? = null,
+        originalArtist: String? = null
+    ): Song? = withContext(Dispatchers.IO) {
         try {
-            val sanitizedInput = videoIdOrQuery.replace("yt_", "").trim()
-            Log.d(TAG, "[PLAYER REQUEST] Fetch incoming for ID/Query: $sanitizedInput")
+            val sanitizedInput = sanitizeId(videoIdOrQuery)
+            Log.d(TAG, "[PLAYER REQUEST] Fetch incoming for ID/Query: $sanitizedInput (Quality: $qualityPref)")
 
             val finalVideoId = if (sanitizedInput.length == 11 && !sanitizedInput.contains(" ")) {
                 sanitizedInput
             } else {
                 val matches = searchBridge.searchSongs(videoIdOrQuery)
-                val topMatch = matches.firstOrNull()?.id?.replace("yt_", "") ?: ""
+                val topMatch = matches.firstOrNull()?.id?.let { sanitizeId(it) } ?: ""
                 if (topMatch.isBlank()) return@withContext null
                 topMatch
             }
 
-            val cachedData = preloadedStreamCache[finalVideoId] ?: preloadedStreamCache["yt_$finalVideoId"]
+            val cachedData = preloadedStreamCache[finalVideoId]
 
             if (cachedData != null) {
-                Log.d(TAG, "[CACHE HIT] Perfect! Playing instantly from background cache for: $finalVideoId")
+                Log.d(TAG, "[CACHE HIT] Playing from cache for: $finalVideoId (Cached Quality: ${cachedData.quality}, Requested: $qualityPref)")
                 return@withContext Song(
                     id = "yt_$finalVideoId",
-                    title = "Loading...",
-                    artist = "YouTube Stream",
+                    title = if (cachedData.title != "Unknown Track") cachedData.title else (originalTitle ?: "YouTube Song"),
+                    artist = if (cachedData.artist != "Unknown Artist") cachedData.artist else (originalArtist ?: "YouTube Artist"),
                     uri = cachedData.streamUrl,
                     artUri = cachedData.artworkUrl,
                     duration = cachedData.durationMs,
@@ -136,14 +153,11 @@ class YouTubeAudioExtractor {
                 )
             }
 
-            Log.w(TAG, "[CACHE MISS] Falling back to slow live extraction for ID: $finalVideoId")
+            Log.w(TAG, "[CACHE MISS] Fetching live extraction for ID: $finalVideoId")
             val url = "https://www.youtube.com/watch?v=$finalVideoId"
             val info = StreamInfo.getInfo(ServiceList.YouTube, url)
 
-            var targetStreamUrl = info.audioStreams
-                ?.filter { !it.url.isNullOrBlank() }
-                ?.maxByOrNull { it.bitrate }
-                ?.url
+            var targetStreamUrl = selectAudioStream(info.audioStreams, qualityPref)
 
             if (targetStreamUrl.isNullOrBlank()) {
                 targetStreamUrl = info.videoStreams
@@ -154,12 +168,12 @@ class YouTubeAudioExtractor {
 
             if (targetStreamUrl.isNullOrBlank()) return@withContext null
 
-            val artworkUrl = if (info.thumbnails.isNotEmpty()) checkThumbnailUrl(finalVideoId) else ""
+            val artworkUrl = "https://img.youtube.com/vi/$finalVideoId/hqdefault.jpg"
 
             return@withContext Song(
                 id = "yt_$finalVideoId",
-                title = info.name ?: "Unknown",
-                artist = info.uploaderName ?: "Unknown",
+                title = info.name ?: (originalTitle ?: "Unknown Track"),
+                artist = info.uploaderName ?: (originalArtist ?: "Unknown Artist"),
                 uri = targetStreamUrl,
                 artUri = artworkUrl,
                 duration = info.duration * 1000L,
@@ -173,16 +187,20 @@ class YouTubeAudioExtractor {
         }
     }
 
+    fun clearPreloadCache() {
+        Log.d(TAG, "Flashing cache clean due to quality setting change or threshold.")
+        preloadedStreamCache.clear()
+    }
+
     fun clearPreloadCacheIfFull() {
         if (preloadedStreamCache.size > 30) {
-            Log.d(TAG, "Preload buffer threshold hit. Flashing cache clean.")
-            preloadedStreamCache.clear()
+            clearPreloadCache()
         }
     }
 
     suspend fun getRelatedSongsFromVideoId(videoId: String): List<Song> = withContext(Dispatchers.IO) {
         try {
-            val sanitizedId = videoId.replace("yt_", "").trim()
+            val sanitizedId = sanitizeId(videoId)
             val url = "https://www.youtube.com/watch?v=$sanitizedId"
             val info = StreamInfo.getInfo(ServiceList.YouTube, url)
             val relatedItems = info.relatedItems ?: return@withContext emptyList()
@@ -197,9 +215,15 @@ class YouTubeAudioExtractor {
                     val artworkUrl = if (extractedId.isNotBlank()) "https://img.youtube.com/vi/$extractedId/hqdefault.jpg" else ""
 
                     Song(
-                        id = finalId, title = item.name ?: "Unknown Track", artist = item.uploaderName ?: "Unknown Artist",
-                        uri = "", artUri = artworkUrl, duration = item.duration * 1000L, isStreaming = true,
-                        folderName = "YouTube Recommendation", type = "yt"
+                        id = finalId,
+                        title = item.name ?: "Unknown Track",
+                        artist = item.uploaderName ?: "Unknown Artist",
+                        uri = "",
+                        artUri = artworkUrl,
+                        duration = item.duration * 1000L,
+                        isStreaming = true,
+                        folderName = "YouTube Recommendation",
+                        type = "yt"
                     )
                 }
         } catch (_: Exception) {
