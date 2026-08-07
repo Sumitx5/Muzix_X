@@ -107,6 +107,10 @@ fun PermissionsScreen(
         ) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    top = innerPadding.calculateTopPadding() + 8.dp,
+                    bottom = 32.dp
+                )
             ) {
                 item {
                     Text(
