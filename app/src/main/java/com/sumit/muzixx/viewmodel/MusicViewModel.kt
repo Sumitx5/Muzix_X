@@ -91,7 +91,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             resolveYouTubeStream = { songItem ->
                 try {
                     val cleanId = songItem.id.replace("yt_", "")
-                    val extractedSong = ytExtractor.getSongFromVideoId(cleanId)
+                    val qualityPref = if (isSettingsInitialized()) settings.audioQuality else "320kbps"
+
+                    val extractedSong = ytExtractor.getSongFromVideoId(
+                        videoIdOrQuery = cleanId,
+                        qualityPref = qualityPref,
+                        originalTitle = songItem.title,
+                        originalArtist = songItem.artist
+                    )
                     extractedSong?.uri
                 } catch (e: Exception) {
                     Log.e("VM_YT_RESOLVE", "Failed extracting YouTube stream path", e)

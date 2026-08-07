@@ -157,15 +157,10 @@ class PlayerController(
 
         val explicitType = song.type.lowercase().trim()
         val rawId = song.id.trim()
-
-        val cleanId = if (rawId.contains("_") && explicitType != "yt") {
-            rawId.substringBefore("_")
-        } else {
-            rawId
-        }
+        val cleanId = rawId.replace("yt_", "").replace("saavn_", "").trim()
 
         val isSaavn = explicitType == "saavn" || (explicitType.isBlank() && cleanId.all { it.isDigit() })
-        val isYoutube = explicitType == "yt" || (explicitType.isBlank() && cleanId.startsWith("yt_"))
+        val isYoutube = explicitType == "yt" || (explicitType.isBlank() && rawId.startsWith("yt_"))
 
         if (isYoutube || isSaavn || song.uri.startsWith("http")) {
             val streamWifiOnly = getStreamWifiOnlyPreference()
@@ -187,7 +182,7 @@ class PlayerController(
         return when {
             isYoutube -> {
                 Log.d(TAG, "Resolving stream link from YouTube ID: $cleanId")
-                resolveYouTubeStream(song) ?: ""
+                resolveYouTubeStream(song.copy(id = cleanId)) ?: ""
             }
             isSaavn -> {
                 var saavnUrl: String
@@ -247,17 +242,27 @@ class PlayerController(
 
                 ensureActive()
 
+                if (resolvedUri.isBlank()) {
+                    Log.e(TAG, "Failed to resolve stream link for: ${song.title}")
+                    return@launch
+                }
+
                 withContext(Dispatchers.Main) {
                     if (engineIndex in activePlaybackQueue.indices && activePlaybackQueue[engineIndex].id == song.id) {
-                        activePlaybackQueue[engineIndex] = song.copy(uri = resolvedUri)
+                        val updatedSong = activePlaybackQueue[engineIndex].copy(uri = resolvedUri)
+                        activePlaybackQueue[engineIndex] = updatedSong
 
-                        val updatedMediaItem = buildMediaItem(activePlaybackQueue[engineIndex], resolvedUri)
+                        val updatedMediaItem = buildMediaItem(updatedSong, resolvedUri)
                         val isCurrentTrack = controller.currentMediaItemIndex == engineIndex
+                        val currentPos = if (isCurrentTrack) controller.currentPosition else 0L
+
                         controller.replaceMediaItem(engineIndex, updatedMediaItem)
+
                         if (isCurrentTrack) {
+                            controller.seekTo(engineIndex, currentPos)
                             controller.prepare()
                             controller.play()
-                            Log.d(TAG, "Forced Media3 pipeline kickstart for on-demand resolved track.")
+                            Log.d(TAG, "Successfully kickstarted Media3 pipeline for track: ${song.title}")
                         }
                     }
                 }
@@ -416,6 +421,7 @@ class PlayerController(
             }
         }
     }
+
     fun setEqualizerEnabled(enabled: Boolean) {
         scope.launch(Dispatchers.Main) {
             mediaController?.let { controller ->
@@ -579,6 +585,7 @@ class PlayerController(
         }
         Log.d(TAG, "Playback Repeat Mode updated to: $nextMode")
     }
+
     fun preparePlayerEngine() {
         mediaController?.prepare()
     }
