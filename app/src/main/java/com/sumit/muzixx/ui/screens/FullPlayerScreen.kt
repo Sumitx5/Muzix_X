@@ -19,18 +19,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Equalizer
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
-import androidx.compose.material.icons.rounded.Lyrics
-import androidx.compose.material.icons.rounded.Download
-import androidx.compose.material.icons.rounded.Equalizer
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,13 +54,13 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.sumit.muzixx.R
-import com.sumit.muzixx.viewmodel.MusicViewModel
-import com.sumit.muzixx.data.network.AudioDownloader
 import com.sumit.muzixx.data.model.RepeatMode
+import com.sumit.muzixx.data.network.AudioDownloader
 import com.sumit.muzixx.ui.components.EqualizerPage
 import com.sumit.muzixx.ui.components.PlaylistSelectorContent
 import com.sumit.muzixx.utils.formatTime
 import com.sumit.muzixx.utils.glassEffect
+import com.sumit.muzixx.viewmodel.MusicViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -79,14 +79,7 @@ fun FullPlayerScreen(
     val defaultAccent = MaterialTheme.colorScheme.surfaceContainerHighest
     var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
 
-    val likedPlaylist = viewModel.playlists.find {
-        it.name.equals("Liked Songs", ignoreCase = true) || it.id == "liked_songs"
-    }
-    val isLiked by remember(likedPlaylist, song) {
-        derivedStateOf {
-            song != null && likedPlaylist?.songs?.any { it.id == song.id } == true
-        }
-    }
+    val isLiked = viewModel.isSongLiked(song?.id)
 
     val animatedAccentColor by animateColorAsState(
         targetValue = dynamicAccentColor,
@@ -94,7 +87,7 @@ fun FullPlayerScreen(
         label = "DynamicThemeAccent"
     )
 
-    //Animated Scale Trigger (Play/Pause)
+    // Animated Scale Trigger (Play/Pause)
     val playPauseScale by animateFloatAsState(
         targetValue = if (viewModel.isPlaying) 1.0f else 0.94f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
@@ -114,7 +107,7 @@ fun FullPlayerScreen(
         }
     }
 
-    //Loads Content On app screen Launch
+    // Loads Content On app screen Launch
     LaunchedEffect(song?.artUri) {
         if (song?.artUri != null) {
             withContext(Dispatchers.IO) {
@@ -176,7 +169,7 @@ fun FullPlayerScreen(
         label = "PlayerSpringDismiss"
     )
 
-    //Main Content Adjustments
+    // Main Content Adjustments
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -233,7 +226,7 @@ fun FullPlayerScreen(
                     .glassEffect(RoundedCornerShape(16.dp))
             )
 
-            //Song Thumbnail(Art)
+            // Song Thumbnail(Art)
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -265,7 +258,7 @@ fun FullPlayerScreen(
                         contentScale = ContentScale.Crop
                     )
 
-                    //Info About Song
+                    // Info About Song
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopEnd)
@@ -473,7 +466,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            //CORE PLAYBACK CONTROLS
+            // CORE PLAYBACK CONTROLS
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -529,7 +522,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            //UTILITY BAR CONTROL
+            // UTILITY BAR CONTROL
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -549,38 +542,25 @@ fun FullPlayerScreen(
                     }
                     Icon(
                         imageVector = icon,
-                    contentDescription = "Cycle Playback Loop Repeat Settings",
-                    tint = tint,
-                    modifier = Modifier.size(24.dp)
+                        contentDescription = "Cycle Playback Loop Repeat Settings",
+                        tint = tint,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
                 IconButton(
                     onClick = {
                         song?.let { currentTrack ->
-                            val targetPlaylist = likedPlaylist ?: run {
-                                viewModel.createPlaylist("Liked Songs")
-                                viewModel.playlists.find {
-                                    it.name.equals("Liked Songs", ignoreCase = true) || it.id == "liked_songs"
-                                }
-                            }
-
-                            targetPlaylist?.let { playlist ->
-                                if (isLiked) {
-                                    viewModel.removeSongFromPlaylist(playlist.id, currentTrack)
-                                    Toast.makeText(context, "Removed from Liked Songs", Toast.LENGTH_SHORT).show()
-                                } else {
-                                    viewModel.addSongToPlaylist(playlist.id, currentTrack)
-                                    Toast.makeText(context, "Added to Liked Songs", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+                            val nowLiked = viewModel.toggleLike(currentTrack)
+                            val message = if (nowLiked) "Added to Liked Songs" else "Removed from Liked Songs"
+                            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier.glassEffect(CircleShape)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Favorite,
-                        contentDescription = if (isLiked) "Removed from Liked Songs" else "Add to Liked Songs",
+                        contentDescription = if (isLiked) "Remove from Liked Songs" else "Add to Liked Songs",
                         tint = if (isLiked) Color(0xFFE53935) else MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(26.dp)
                     )
@@ -631,7 +611,7 @@ fun FullPlayerScreen(
                 onDismissRequest = { showPlaylistDialog = false },
                 sheetState = sheetState,
                 containerColor = Color.Transparent,
-                dragHandle = {  }
+                dragHandle = { }
             ) {
                 PlaylistSelectorContent(
                     song = song,
