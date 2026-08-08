@@ -1,4 +1,4 @@
-package com.sumit.muzixx.data
+package com.sumit.muzixx.data.model
 
 data class Song(
     val id: String,
