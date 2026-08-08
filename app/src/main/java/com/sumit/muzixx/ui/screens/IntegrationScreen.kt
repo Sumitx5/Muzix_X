@@ -153,7 +153,7 @@ fun IntegrationScreen(
                             enabled = !isImporting && spotifyUrl.isNotBlank(),
                             onClick = {
                                 isImporting = true
-                                viewModel.importSpotifyPlaylist(
+                                viewModel.contentManager.importSpotifyPlaylist(
                                     url = spotifyUrl,
                                     onSuccess = { name, count ->
                                         isImporting = false

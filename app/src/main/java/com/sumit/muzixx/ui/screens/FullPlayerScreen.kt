@@ -107,7 +107,6 @@ fun FullPlayerScreen(
         }
     }
 
-    // Loads Content On app screen Launch
     LaunchedEffect(song?.artUri) {
         if (song?.artUri != null) {
             withContext(Dispatchers.IO) {

@@ -64,7 +64,7 @@ fun SettingsScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.calculateCurrentCacheSize()
+        viewModel.cacheManager.calculateCurrentCacheSize()
     }
 
     Scaffold(
@@ -211,10 +211,10 @@ fun SettingsScreen(
                     ) {
                         SettingsClickableItem(
                             title = "Clear Audio Cache",
-                            subtitle = "Free up storage by clearing temporarily streamed image arts and audio buffers (${viewModel.cacheSizeText})",
+                            subtitle = "Free up storage by clearing temporarily streamed image arts and audio buffers (${viewModel.cacheManager.cacheSizeText})",
                             icon = Icons.Default.Delete
                         ) {
-                            viewModel.clearAudioCache()
+                            viewModel.cacheManager.clearAudioCache()
                         }
                     }
                 }

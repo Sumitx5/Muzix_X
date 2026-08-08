@@ -150,7 +150,7 @@ class MainActivity : ComponentActivity() {
 
                     lifecycleScope.launch(Dispatchers.IO) {
                         delay(200.milliseconds)
-                        musicViewModel.loadJioSaavnHomeContent()
+                        musicViewModel.contentManager.loadJioSaavnHomeContent()
                     }
 
                     snapshotFlow { musicViewModel.settings.checkUpdatesOnStart }

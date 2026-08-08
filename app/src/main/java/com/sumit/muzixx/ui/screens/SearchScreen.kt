@@ -55,8 +55,8 @@ fun SearchScreen(
     val focusManager = LocalFocusManager.current
 
     val tabs = listOf("JioSaavn", "YouTube Music")
-    val saavnResults = viewModel.saavnSearchResults
-    val youtubeResults = viewModel.searchResults
+    val saavnResults = viewModel.searchManager.saavnSearchResults
+    val youtubeResults = viewModel.searchManager.searchResults
 
     val hasSaavnData by remember { derivedStateOf { saavnResults.isNotEmpty() } }
     val hasYoutubeData by remember { derivedStateOf { youtubeResults.isNotEmpty() } }
@@ -120,8 +120,8 @@ fun SearchScreen(
                 keyboardActions = KeyboardActions(
                     onSearch = {
                         if (searchQuery.isNotBlank()) {
-                            if (selectedTab == 0) viewModel.searchJioSaavn(searchQuery.trim())
-                            else viewModel.searchOnlineSongs(searchQuery.trim())
+                            if (selectedTab == 0) viewModel.searchManager.searchJioSaavn(searchQuery.trim())
+                            else viewModel.searchManager.searchOnlineSongs(searchQuery.trim())
                             keyboardController?.hide()
                             focusManager.clearFocus()
                         }
@@ -148,8 +148,8 @@ fun SearchScreen(
                         onClick = {
                             selectedTab = index
                             if (searchQuery.isNotBlank()) {
-                                if (index == 0) viewModel.searchJioSaavn(searchQuery.trim())
-                                else viewModel.searchOnlineSongs(searchQuery.trim())
+                                if (index == 0) viewModel.searchManager.searchJioSaavn(searchQuery.trim())
+                                else viewModel.searchManager.searchOnlineSongs(searchQuery.trim())
                             }
                         },
                         text = {
@@ -168,21 +168,21 @@ fun SearchScreen(
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
                 if (selectedTab == 0) {
                     when {
-                        viewModel.isSaavnLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        viewModel.searchManager.isSaavnLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
 
                         isSearchFocused || !hasSaavnData -> {
                             InteractiveSearchContextPanel(
                                 query = searchQuery,
-                                history = viewModel.searchHistory.take(5),
+                                history = viewModel.searchManager.searchHistory.take(5),
                                 recommendations = searchRecommendations,
                                 placeholderText = "Search your favorite tracks on JioSaavn",
                                 onSelection = { chosenQuery ->
                                     searchQuery = chosenQuery
-                                    viewModel.searchJioSaavn(chosenQuery)
+                                    viewModel.searchManager.searchJioSaavn(chosenQuery)
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                 },
-                                onDeleteHistory = { query -> viewModel.deleteSearchQuery(query) }
+                                onDeleteHistory = { query -> viewModel.searchManager.deleteSearchQuery(query) }
                             )
                         }
                         else -> SongResultsList(
@@ -197,21 +197,21 @@ fun SearchScreen(
                     }
                 } else {
                     when {
-                        viewModel.isSearchLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                        viewModel.searchManager.isSearchLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
 
                         isSearchFocused || !hasYoutubeData -> {
                             InteractiveSearchContextPanel(
                                 query = searchQuery,
-                                history = viewModel.searchHistory.take(5),
+                                history = viewModel.searchManager.searchHistory.take(5),
                                 recommendations = searchRecommendations,
                                 placeholderText = "Search your favorite videos on YouTube",
                                 onSelection = { chosenQuery ->
                                     searchQuery = chosenQuery
-                                    viewModel.searchOnlineSongs(chosenQuery)
+                                    viewModel.searchManager.searchOnlineSongs(chosenQuery)
                                     focusManager.clearFocus()
                                     keyboardController?.hide()
                                 },
-                                onDeleteHistory = { query -> viewModel.deleteSearchQuery(query) }
+                                onDeleteHistory = { query -> viewModel.searchManager.deleteSearchQuery(query) }
                             )
                         }
                         else -> SongResultsList(

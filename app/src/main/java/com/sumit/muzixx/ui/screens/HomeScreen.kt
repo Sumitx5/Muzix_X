@@ -70,9 +70,9 @@ fun HomeScreen(
         else -> "User"
     }
 
-    val hindiHits = viewModel.saavnHminiHits
-    val chuddyBuddies = viewModel.saavnTrendingSongs
-    val baarish = viewModel.saavnNewReleases
+    val hindiHits = viewModel.contentManager.saavnHminiHits
+    val chuddyBuddies = viewModel.contentManager.saavnTrendingSongs
+    val baarish = viewModel.contentManager.saavnNewReleases
     val selectedSong = viewModel.selectedSong
 
     val recentlyHeard = remember(viewModel.recentlyPlayedSongs) {
@@ -81,11 +81,11 @@ fun HomeScreen(
 
     LaunchedEffect(recentlyHeard.size) {
         if (recentlyHeard.isNotEmpty()) {
-            viewModel.fetchRecommendationsFromHistory(recentlyHeard)
+            viewModel.contentManager.fetchRecommendationsFromHistory(recentlyHeard)
         }
     }
 
-    val recommendedSongs = viewModel.recommendedSongs
+    val recommendedSongs = viewModel.contentManager.recommendedSongs
 
     val (isLastDayOfMonth, currentMonthName) = remember {
         val calendar = Calendar.getInstance()
@@ -104,35 +104,35 @@ fun HomeScreen(
     var isPartyLoading by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
-        viewModel.loadYouTubeTrendingSongs()
+        viewModel.contentManager.loadYouTubeTrendingSongs()
 
         launch {
             is90sLoading = true
-            featured90sPlaylists = viewModel.searchJioSaavnPlaylists("90s Hindi")
+            featured90sPlaylists = viewModel.contentManager.searchJioSaavnPlaylists("90s Hindi")
             is90sLoading = false
         }
 
         launch {
             isRomanceLoading = true
-            romancePlaylists = viewModel.searchJioSaavnPlaylists("Romance")
+            romancePlaylists = viewModel.contentManager.searchJioSaavnPlaylists("Romance")
             isRomanceLoading = false
         }
 
         launch {
             isPartyLoading = true
-            partyHitsPlaylists = viewModel.searchJioSaavnPlaylists("Party Hits")
+            partyHitsPlaylists = viewModel.contentManager.searchJioSaavnPlaylists("Party Hits")
             isPartyLoading = false
         }
     }
 
-    val ytTrendingSongs = viewModel.youtubeTrendingSongs
+    val ytTrendingSongs = viewModel.contentManager.youtubeTrendingSongs
 
     BackHandler(drawerState.isOpen) {
         scope.launch { drawerState.close() }
     }
 
-    BackHandler(viewModel.currentCloudPlaylistName != null) {
-        viewModel.closeCloudPlaylistDetails()
+    BackHandler(viewModel.contentManager.currentCloudPlaylistName != null) {
+        viewModel.contentManager.closeCloudPlaylistDetails()
     }
 
     HomeNavigationDrawer(
@@ -248,11 +248,11 @@ fun HomeScreen(
 
                     // Recommended Songs
                     item(key = "song_recomends") {
-                        if (recommendedSongs.isNotEmpty() || viewModel.isRecommendationsLoading) {
+                        if (recommendedSongs.isNotEmpty() || viewModel.contentManager.isRecommendationsLoading) {
                             SongSection(
                                 title = "Recommended For You",
                                 songs = recommendedSongs,
-                                isLoading = viewModel.isRecommendationsLoading,
+                                isLoading = viewModel.contentManager.isRecommendationsLoading,
                                 isGrid = true,
                                 onClick = { index ->
                                     viewModel.playYouTubeSearchResultWithAutoplay(
@@ -269,7 +269,7 @@ fun HomeScreen(
                         SongSection(
                             title = "Trending Today",
                             songs = ytTrendingSongs,
-                            isLoading = viewModel.isYouTubeTrendingLoading,
+                            isLoading = viewModel.contentManager.isYouTubeTrendingLoading,
                             onClick = { index ->
                                 viewModel.playYouTubeSearchResultWithAutoplay(ytTrendingSongs, index)
                             }
@@ -301,7 +301,7 @@ fun HomeScreen(
                         SongSection(
                             title = "Baarish Or Dance",
                             songs = baarish,
-                            isLoading = viewModel.isNewReleasesLoading,
+                            isLoading = viewModel.contentManager.isNewReleasesLoading,
                             onClick = { index -> viewModel.playSaavnSong(baarish, index) }
                         )
                     }
@@ -310,7 +310,7 @@ fun HomeScreen(
                         SongSection(
                             title = "Hindi: India Superhit's",
                             songs = hindiHits,
-                            isLoading = viewModel.isHindiHitLoading,
+                            isLoading = viewModel.contentManager.isHindiHitLoading,
                             onClick = { index -> viewModel.playSaavnSong(hindiHits, index) }
                         )
                     }
@@ -327,7 +327,7 @@ fun HomeScreen(
                             imageUrl = { item -> item.image?.lastOrNull()?.url },
                             trackCount = { item -> item.songCount },
                             onPlaylistClick = { id, name ->
-                                viewModel.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
+                                viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
                             }
                         )
                     }
@@ -343,7 +343,7 @@ fun HomeScreen(
                             imageUrl = { item -> item.image?.lastOrNull()?.url },
                             trackCount = { item -> item.songCount },
                             onPlaylistClick = { id, name ->
-                                viewModel.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
+                                viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
                             }
                         )
                     }
@@ -352,7 +352,7 @@ fun HomeScreen(
                         SongSection(
                             title = "Chuddy Buddies",
                             songs = chuddyBuddies,
-                            isLoading = viewModel.isTrendingLoading,
+                            isLoading = viewModel.contentManager.isTrendingLoading,
                             onClick = { index -> viewModel.playSaavnSong(chuddyBuddies, index) }
                         )
                     }
@@ -368,7 +368,7 @@ fun HomeScreen(
                             imageUrl = { item -> item.image?.lastOrNull()?.url },
                             trackCount = { item -> item.songCount },
                             onPlaylistClick = { id, name ->
-                                viewModel.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
+                                viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
                             }
                         )
                     }
@@ -377,12 +377,12 @@ fun HomeScreen(
 
             //Playlist Details Modal Overlay
             AnimatedVisibility(
-                visible = viewModel.currentCloudPlaylistName != null,
+                visible = viewModel.contentManager.currentCloudPlaylistName != null,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                val playlistName = viewModel.currentCloudPlaylistName ?: ""
-                val playlistSongs = viewModel.currentCloudPlaylistSongs
+                val playlistName = viewModel.contentManager.currentCloudPlaylistName ?: ""
+                val playlistSongs = viewModel.contentManager.currentCloudPlaylistSongs
                 val headerCover = playlistSongs.firstOrNull()?.artUri
 
                 Column(
@@ -396,7 +396,7 @@ fun HomeScreen(
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { viewModel.closeCloudPlaylistDetails() }) {
+                        IconButton(onClick = { viewModel.contentManager.closeCloudPlaylistDetails() }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                                 contentDescription = "Back",
@@ -417,7 +417,7 @@ fun HomeScreen(
                             .weight(1f),
                         contentAlignment = Alignment.Center
                     ) {
-                        if (viewModel.isCloudPlaylistLoading) {
+                        if (viewModel.contentManager.isCloudPlaylistLoading) {
                             CircularProgressIndicator(color = accentColor)
                         } else if (playlistSongs.isEmpty()) {
                             Text(
