@@ -34,7 +34,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.ui.components.PlaylistSelectorContent
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.utils.glassEffect

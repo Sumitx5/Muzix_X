@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.utils.glassEffect
 
 @OptIn(ExperimentalMaterial3Api::class)

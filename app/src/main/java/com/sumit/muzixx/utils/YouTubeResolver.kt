@@ -1,7 +1,7 @@
 package com.sumit.muzixx.utils
 
 import android.util.Log
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

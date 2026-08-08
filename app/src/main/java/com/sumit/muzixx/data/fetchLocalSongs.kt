@@ -5,6 +5,7 @@ import android.content.Context
 import android.provider.MediaStore
 import java.io.File
 import androidx.core.net.toUri
+import com.sumit.muzixx.data.model.Song
 
 fun fetchLocalSongs(context: Context): List<Song> {
     val songList = mutableListOf<Song>()

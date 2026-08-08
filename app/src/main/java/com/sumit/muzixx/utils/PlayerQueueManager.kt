@@ -1,6 +1,6 @@
 package com.sumit.muzixx.utils
 
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 
 object PlayerQueueManager {
 

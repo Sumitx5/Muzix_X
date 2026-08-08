@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit
 object MuzixCacheManager {
     private var cacheInstance: SimpleCache? = null
 
-    //Allocate 150MB maximum space for sliding track pre-cache buffer windows
+    // Allocate 150MB maximum space
     private const val CACHE_SIZE = 150 * 1024 * 1024L
 
     @Synchronized

@@ -1,6 +1,5 @@
 package com.sumit.muzixx.viewmodel
 
-import android.annotation.SuppressLint
 import android.app.Application
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -9,14 +8,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.sumit.muzixx.data.Playlist
-import com.sumit.muzixx.data.Song
-import com.sumit.muzixx.data.manager.AutoplayManager
-import com.sumit.muzixx.data.manager.MediaStateHolder
-import com.sumit.muzixx.data.manager.PlayerController
-import com.sumit.muzixx.data.manager.PlaybackPersistenceManager
-import com.sumit.muzixx.data.manager.PlaylistController
-import com.sumit.muzixx.data.model.toSong
+import com.sumit.muzixx.data.manager.*
+import com.sumit.muzixx.data.model.Playlist
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.data.network.JioSaavnApiService
 import com.sumit.muzixx.data.network.SpotifyImporter
 import com.sumit.muzixx.data.network.UpdateChecker
@@ -24,10 +18,9 @@ import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import com.sumit.muzixx.data.network.YouTubeMusicScraper
 import com.sumit.muzixx.data.repository.PlaybackStatsRepository
 import com.sumit.muzixx.data.repository.SettingsRepository
+import com.sumit.muzixx.utils.LikeManager
 import com.sumit.muzixx.utils.NetworkUtils.isWifiConnected
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -35,6 +28,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context get() = getApplication<Application>().applicationContext
 
+    // MANAGERS
     val mediaStateHolder by lazy { MediaStateHolder(viewModelScope) }
     private val ytScraper = YouTubeMusicScraper()
     private val ytExtractor = YouTubeAudioExtractor()
@@ -42,6 +36,28 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val autoplayManager by lazy { AutoplayManager(ytScraper, ytExtractor, jioSaavnApiService) }
     private var persistenceManager: PlaybackPersistenceManager? = null
     private val spotifyImporter = SpotifyImporter()
+
+    val cacheManager by lazy { CacheManager(context, viewModelScope) }
+    val searchManager by lazy {
+        SearchManager(
+            scope = viewModelScope,
+            jioSaavnApiService = jioSaavnApiService,
+            ytScraper = ytScraper,
+            persistenceManagerProvider = { persistenceManager }
+        )
+    }
+
+    val contentManager by lazy {
+        ContentManager(
+            scope = viewModelScope,
+            jioSaavnApiService = jioSaavnApiService,
+            ytScraper = ytScraper,
+            ytExtractor = ytExtractor,
+            autoplayManager = autoplayManager,
+            spotifyImporter = spotifyImporter,
+            createPlaylistCallback = { name, songs -> createPlaylist(name, songs) }
+        )
+    }
 
     lateinit var settings: SettingsRepository private set
     lateinit var stats: PlaybackStatsRepository private set
@@ -52,6 +68,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         })
     }
 
+    val likeManager by lazy {
+        LikeManager(
+            getPlaylists = { playlistController.playlists },
+            createPlaylist = { name -> playlistController.createCustomPlaylist(name) },
+            addSongToPlaylist = { playlistId, song -> playlistController.addSongToPlaylist(playlistId, song) },
+            removeSongFromPlaylist = { playlistId, song -> playlistController.removeSongFromPlaylist(playlistId, song) }
+        )
+    }
+
     // EXPOSED PLAYER STATES
     val isPlaying get() = playerController.isPlaying
     val selectedSong get() = playerController.selectedSong
@@ -59,7 +84,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val totalDuration get() = mediaStateHolder.totalDuration
     val currentRepeatMode get() = playerController.currentRepeatMode
     val currentVolume get() = playerController.currentVolume
-
     val activePlaylistIndex get() = playerController.activePlaylistIndex
     val activePlaybackQueue get() = playerController.activePlaybackQueue
 
@@ -68,10 +92,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         PlayerController(
             scope = viewModelScope,
             onPlaybackStarted = { isPlayingNow, activeController ->
-                if (::stats.isInitialized) {
-                    stats.startPlaybackTimer(isPlayingProvider = { isPlayingNow })
-                }
-                mediaStateHolder.startTracking(mediaControllerProvider = { activeController })
+                if (::stats.isInitialized) stats.startPlaybackTimer { isPlayingNow }
+                mediaStateHolder.startTracking { activeController }
             },
             onPlaybackStopped = {
                 saveCurrentPlaybackPosition()
@@ -85,92 +107,52 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 addToRecentlyPlayed(switchedSong)
                 handleQueueLookaheadAutoplay()
             },
-            onQueueUpdated = { updatedList ->
-                currentPlaybackQueue = updatedList
-            },
+            onQueueUpdated = { updatedList -> currentPlaybackQueue = updatedList },
             resolveYouTubeStream = { songItem ->
                 try {
                     val cleanId = songItem.id.replace("yt_", "")
                     val qualityPref = if (isSettingsInitialized()) settings.audioQuality else "320kbps"
-
-                    val extractedSong = ytExtractor.getSongFromVideoId(
+                    ytExtractor.getSongFromVideoId(
                         videoIdOrQuery = cleanId,
                         qualityPref = qualityPref,
                         originalTitle = songItem.title,
                         originalArtist = songItem.artist
-                    )
-                    extractedSong?.uri
+                    )?.uri
                 } catch (e: Exception) {
                     Log.e("VM_YT_RESOLVE", "Failed extracting YouTube stream path", e)
                     null
                 }
             },
             jioSaavnApiService = jioSaavnApiService,
-            getAudioQualityPreference = {
-                if (isSettingsInitialized()) settings.audioQuality else "320kbps"
-            },
-            getStreamWifiOnlyPreference = {
-                if (isSettingsInitialized()) settings.streamWifiOnly else false
-            }
+            getAudioQualityPreference = { if (isSettingsInitialized()) settings.audioQuality else "320kbps" },
+            getStreamWifiOnlyPreference = { if (isSettingsInitialized()) settings.streamWifiOnly else false }
         )
     }
 
     var currentPlaybackQueue by mutableStateOf<List<Song>>(emptyList())
         private set
 
-    var cacheSizeText by mutableStateOf("Calculating...")
-        private set
-
-    // UI STATE LISTS
+    // LOCAL MUSIC & RECENTLY PLAYED STATE
     val songs = mutableStateListOf<Song>()
-    val searchResults = mutableStateListOf<Song>()
-    val saavnTrendingSongs = mutableStateListOf<Song>()
-    val saavnNewReleases = mutableStateListOf<Song>()
-    val saavnHminiHits = mutableStateListOf<Song>()
-    val saavnSearchResults = mutableStateListOf<Song>()
-    var currentCloudPlaylistName by mutableStateOf<String?>(null)
-    val currentCloudPlaylistSongs = mutableStateListOf<Song>()
-    val searchHistory = mutableStateListOf<String>()
     val recentlyPlayedSongs = mutableStateListOf<Song>()
-    val recommendedSongs = mutableStateListOf<Song>()
-    val youtubeTrendingSongs = mutableStateListOf<Song>()
-    var isYouTubeTrendingLoading by mutableStateOf(false)
-        private set
-    var isRecommendationsLoading by mutableStateOf(false)
-        private set
-
-    // Loading States
     var isLocalSongsLoading by mutableStateOf(false)
         private set
-    var isTrendingLoading by mutableStateOf(false)
-        private set
-    var isNewReleasesLoading by mutableStateOf(false)
-        private set
-    var isHindiHitLoading by mutableStateOf(false)
-        private set
-    var isSearchLoading by mutableStateOf(false)
-        private set
-    var isSaavnLoading by mutableStateOf(false)
-        private set
-    var isCloudPlaylistLoading by mutableStateOf(false)
-        private set
 
+    // PLAYLIST DELEGATION
     val playlists get() = playlistController.playlists
     var selectedPlaylist: Playlist?
         get() = playlistController.selectedPlaylist
         set(value) { playlistController.selectedPlaylist = value }
 
-    // Initialization
+    // INITIALIZATIONS
     fun initSettings() {
-        if (::settings.isInitialized) return
-        settings = SettingsRepository(context, viewModelScope)
+        if (!::settings.isInitialized) settings = SettingsRepository(context, viewModelScope)
     }
 
     fun isSettingsInitialized(): Boolean = ::settings.isInitialized
 
     fun initStatsManager() {
-        if (::stats.isInitialized) return
-        stats = PlaybackStatsRepository(context, viewModelScope)
+        if (!::stats.isInitialized) stats = PlaybackStatsRepository(context, viewModelScope)
     }
 
     fun initMediaController(onControllerReady: () -> Unit = {}) {
@@ -180,7 +162,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun initStorage(skipSongRestoration: Boolean = false) {
         persistenceManager = PlaybackPersistenceManager(context)
 
-        loadSearchHistory()
+        searchManager.loadSearchHistory()
         loadRecentlyPlayedFromStorage()
 
         try {
@@ -210,9 +192,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 val savedProgress = persistenceManager?.getLastPlaybackPosition() ?: 0L
-                if (savedProgress > 0L) {
-                    seekTo(savedProgress)
-                }
+                if (savedProgress > 0L) seekTo(savedProgress)
             }
         }
     }
@@ -226,7 +206,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         totalSec: Long, monthlySec: Long, yearlySec: Long
     ) {
         if (totalHeard == 0 && monthlyHeard == 0 && totalSec == 0L) return
-
         val pm = persistenceManager ?: return
         if (!pm.isCloudStatsSynced() && ::stats.isInitialized) {
             stats.overwriteLocalStatsWithCloud(totalHeard, monthlyHeard, yearlyHeard, totalSec, monthlySec, yearlySec)
@@ -234,9 +213,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun resetCloudSyncFlag() {
-        persistenceManager?.resetCloudSyncFlag()
-    }
+    fun resetCloudSyncFlag() = persistenceManager?.resetCloudSyncFlag()
 
     private fun addToRecentlyPlayed(song: Song) {
         if (song.id.isBlank()) return
@@ -244,7 +221,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (matchIndex != -1) recentlyPlayedSongs.removeAt(matchIndex)
         recentlyPlayedSongs.add(0, song)
         if (recentlyPlayedSongs.size > 20) recentlyPlayedSongs.removeAt(recentlyPlayedSongs.lastIndex)
-
         persistenceManager?.saveRecentlyPlayed(recentlyPlayedSongs)
     }
 
@@ -255,263 +231,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun clearAudioCache() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val cacheDir = context.cacheDir
-                if (cacheDir.exists() && cacheDir.isDirectory) {
-                    cacheDir.listFiles()?.forEach { file -> file.deleteRecursively() }
-                }
-                withContext(Dispatchers.Main) { cacheSizeText = "0.00 MB" }
-            } catch (e: Exception) {
-                Log.e("MuzixX_Cache", "Failed to clear audio cache", e)
-            }
-        }
-    }
-
-    @SuppressLint("DefaultLocale")
-    fun calculateCurrentCacheSize() {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val cacheDir = context.cacheDir
-                var totalBytes = 0L
-                if (cacheDir.exists() && cacheDir.isDirectory) {
-                    cacheDir.walkTopDown().forEach { if (it.isFile) totalBytes += it.length() }
-                }
-                val megaBytes = totalBytes.toDouble() / (1024 * 1024)
-                withContext(Dispatchers.Main) { cacheSizeText = String.format("%.2f MB", megaBytes) }
-            } catch (_: Exception) {
-                withContext(Dispatchers.Main) { cacheSizeText = "0.00 MB" }
-            }
-        }
-    }
-
     fun updateAppTheme(themeName: String) {
         if (isSettingsInitialized()) settings.updateAppTheme(themeName)
-    }
-
-    // High-performance Concurrent Spotify Importer
-    fun importSpotifyPlaylist(
-        url: String,
-        onSuccess: (playlistName: String, count: Int) -> Unit,
-        onError: (String) -> Unit
-    ) {
-        if (url.isBlank()) {
-            onError("Please enter a valid Spotify playlist URL")
-            return
-        }
-
-        viewModelScope.launch {
-            try {
-                // Fetch both the extracted playlist name and track list
-                val importResult = spotifyImporter.fetchPlaylistTracks(url)
-                val spotifyTracks = importResult.tracks
-
-                if (spotifyTracks.isEmpty()) {
-                    onError("Failed to parse Spotify playlist. Ensure the link is public.")
-                    return@launch
-                }
-
-                // Parallel async resolution of YouTube streams for fast imports
-                val resolvedSongs = withContext(Dispatchers.IO) {
-                    spotifyTracks.map { spotifyTrack ->
-                        async {
-                            try {
-                                val query = "${spotifyTrack.title} ${spotifyTrack.artist}"
-                                val results = ytScraper.searchSongs(query)
-                                results.firstOrNull()
-                            } catch (_: Exception) {
-                                null
-                            }
-                        }
-                    }.awaitAll().filterNotNull()
-                }
-
-                if (resolvedSongs.isNotEmpty()) {
-                    // Use the imported Spotify playlist name (fallback handled inside SpotifyImporter)
-                    val playlistName = importResult.playlistName
-                    createPlaylist(playlistName, resolvedSongs)
-                    onSuccess(playlistName, resolvedSongs.size)
-                } else {
-                    onError("Could not resolve playable audio streams for tracks in this playlist.")
-                }
-            } catch (e: Exception) {
-                onError("Import failed: ${e.localizedMessage ?: "Unknown error"}")
-            }
-        }
-    }
-
-    // Search & Content Fetching
-    fun searchJioSaavn(query: String) {
-        if (query.isBlank()) return
-        saveSearchQuery(query)
-        viewModelScope.launch {
-            isSaavnLoading = true
-            try {
-                val response = withContext(Dispatchers.IO) { jioSaavnApiService.searchSongs(query) }
-                if (response.success) {
-                    val tracks = response.data?.songs?.map { it.toSong("JioSaavn Search Result") } ?: emptyList()
-                    saavnSearchResults.clear()
-                    saavnSearchResults.addAll(tracks)
-                }
-            } catch (_: Exception) {
-                saavnSearchResults.clear()
-            } finally {
-                isSaavnLoading = false
-            }
-        }
-    }
-
-    fun searchOnlineSongs(query: String) {
-        if (query.isBlank()) return
-        saveSearchQuery(query)
-        viewModelScope.launch {
-            isSearchLoading = true
-            try {
-                val scrapedResults = ytScraper.searchSongs(query.trim())
-                searchResults.clear()
-                searchResults.addAll(scrapedResults)
-            } catch (_: Exception) {
-                searchResults.clear()
-            } finally {
-                isSearchLoading = false
-            }
-        }
-    }
-
-    private var hasFetchedRecommendations = false
-
-    fun fetchRecommendationsFromHistory(history: List<Song>) {
-        if (hasFetchedRecommendations && recommendedSongs.isNotEmpty()) return
-        val seedTrack = history.firstOrNull { it.id.isNotBlank() } ?: return
-
-        viewModelScope.launch {
-            isRecommendationsLoading = true
-            try {
-                val recs = withContext(Dispatchers.IO) {
-                    if (seedTrack.id.startsWith("yt_")) {
-                        autoplayManager.fetchYouTubeAutoplayQueue(seedTrack)
-                    } else {
-                        autoplayManager.fetchJioSaavnWithYouTubeRecommendations(seedTrack)
-                    }
-                }
-
-                val historyIds = history.map { it.id }.toSet()
-                val filteredRecs = recs.filter { it.id !in historyIds && it.id.isNotBlank() }.take(8)
-
-                if (filteredRecs.isNotEmpty()) {
-                    recommendedSongs.clear()
-                    recommendedSongs.addAll(filteredRecs)
-                    hasFetchedRecommendations = true
-                    filteredRecs.firstOrNull()?.let { topSong ->
-                        val cleanYtId = topSong.id.removePrefix("yt_")
-                        ytExtractor.preloadStream(cleanYtId)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("VM_RECOMMENDATIONS", "Failed to fetch recommended songs", e)
-            } finally {
-                isRecommendationsLoading = false
-            }
-        }
-    }
-
-    private var hasFetchedYouTubeTrending = false
-    fun loadYouTubeTrendingSongs() {
-        if (hasFetchedYouTubeTrending && youtubeTrendingSongs.isNotEmpty()) return
-
-        viewModelScope.launch {
-            isYouTubeTrendingLoading = true
-            try {
-                val trendingResults = withContext(Dispatchers.IO) {
-                    ytScraper.searchSongs("Trending Today Official Songs")
-                }
-
-                val topTrending = trendingResults.take(10)
-
-                if (topTrending.isNotEmpty()) {
-                    youtubeTrendingSongs.clear()
-                    youtubeTrendingSongs.addAll(topTrending)
-                    hasFetchedYouTubeTrending = true
-                    topTrending.firstOrNull()?.let { topSong ->
-                        val cleanYtId = topSong.id.removePrefix("yt_")
-                        ytExtractor.preloadStream(cleanYtId)
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("VM_YT_TRENDING", "Failed fetching YouTube trending songs", e)
-            } finally {
-                isYouTubeTrendingLoading = false
-            }
-        }
-    }
-
-    fun loadJioSaavnHomeContent() {
-        if (isTrendingLoading || isNewReleasesLoading || isHindiHitLoading) return
-        isTrendingLoading = true
-        isNewReleasesLoading = true
-        isHindiHitLoading = true
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val trendingDef = async { runCatching { jioSaavnApiService.getPlaylistDetails("1774824") }.getOrNull() }
-                val newRelDef = async { runCatching { jioSaavnApiService.getPlaylistDetails("153668826") }.getOrNull() }
-                val hindiHitsDef = async { runCatching { jioSaavnApiService.getPlaylistDetails("1134543272") }.getOrNull() }
-
-                val chuddyBuddies = trendingDef.await()?.data?.songs?.map { it.toSong("JioSaavn Chuddy Buddies") } ?: emptyList()
-                val baarishOrDance = newRelDef.await()?.data?.songs?.map { it.toSong("JioSaavn Baarish Or Dance") } ?: emptyList()
-                val hindiHits = hindiHitsDef.await()?.data?.songs?.map { it.toSong("Hindi Hits") } ?: emptyList()
-
-                withContext(Dispatchers.Main) {
-                    saavnTrendingSongs.apply { clear(); addAll(chuddyBuddies) }
-                    saavnNewReleases.apply { clear(); addAll(baarishOrDance) }
-                    saavnHminiHits.apply { clear(); addAll(hindiHits) }
-                }
-            } finally {
-                withContext(Dispatchers.Main) {
-                    isTrendingLoading = false; isNewReleasesLoading = false; isHindiHitLoading = false
-                }
-            }
-        }
-    }
-
-    suspend fun searchJioSaavnPlaylists(query: String): List<com.sumit.muzixx.data.model.SaavnCloudPlaylistObject> {
-        if (query.isBlank()) return emptyList()
-        return withContext(Dispatchers.IO) {
-            try {
-                val response = jioSaavnApiService.searchPlaylists(query)
-                if (response.success) {
-                    response.data?.results ?: emptyList()
-                } else {
-                    emptyList()
-                }
-            } catch (_: Exception) {
-                emptyList()
-            }
-        }
-    }
-
-    fun loadCloudPlaylistDetails(playlistId: String, playlistName: String) {
-        if (playlistId.isBlank()) return
-        viewModelScope.launch {
-            isCloudPlaylistLoading = true
-            currentCloudPlaylistSongs.clear()
-            currentCloudPlaylistName = playlistName
-            try {
-                val response = withContext(Dispatchers.IO) { jioSaavnApiService.getPlaylistDetails(playlistId) }
-                if (response.success) {
-                    val tracks = response.data?.songs?.map { it.toSong("Cloud Playlist: $playlistName") } ?: emptyList()
-                    currentCloudPlaylistSongs.addAll(tracks)
-                }
-            } finally {
-                isCloudPlaylistLoading = false
-            }
-        }
-    }
-
-    fun closeCloudPlaylistDetails() {
-        currentCloudPlaylistName = null
-        currentCloudPlaylistSongs.clear()
     }
 
     fun loadLocalSongsWithLoadingState(songList: List<Song>) {
@@ -524,7 +245,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Playback Controls & Autoplay Bridges
+    // PLAYBACK CONTROLS
     fun playMusicCollection(songList: List<Song>, startIndex: Int) {
         if (songList.isEmpty() || startIndex !in songList.indices) return
         playerController.submitQueueToPlayer(songList, startIndex)
@@ -561,75 +282,6 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 playMusicCollection(fullQueue, 0)
             }
         }
-    }
-
-    // Equalizer Controls
-    fun setEqualizerPresetLive(presetIndex: Short) {
-        if (isSettingsInitialized()) {
-            settings.updateEqPresetIndex(presetIndex.toInt()) { playerController.setEqualizerPreset(it) }
-        } else {
-            playerController.setEqualizerPreset(presetIndex)
-        }
-    }
-
-    fun setEqualizerEnabled(enabled: Boolean) {
-        if (isSettingsInitialized()) {
-            settings.updateEqEnabled(enabled) { playerController.setEqualizerEnabled(it) }
-        } else {
-            playerController.setEqualizerEnabled(enabled)
-        }
-    }
-
-    fun setBandLevel(bandIndex: Int, dbValue: Float) {
-        if (isSettingsInitialized()) {
-            settings.updateSingleBand(bandIndex, dbValue) { idx, db -> playerController.setBandLevel(idx, db) }
-        } else {
-            playerController.setBandLevel(bandIndex, dbValue)
-        }
-    }
-
-    fun setBassBoostEnabled(enabled: Boolean) {
-        if (isSettingsInitialized()) {
-            settings.updateBassEnabled(enabled) { playerController.setBassBoostEnabled(it) }
-        } else {
-            playerController.setBassBoostEnabled(enabled)
-        }
-    }
-
-    fun setBassBoostStrength(strengthPercent: Float) {
-        if (isSettingsInitialized()) {
-            settings.updateBassStrength(strengthPercent) { playerController.setBassBoostStrength(it) }
-        } else {
-            playerController.setBassBoostStrength(strengthPercent)
-        }
-    }
-
-    fun setMasterVolume(volumePercent: Float) = playerController.setMasterVolume(volumePercent)
-
-    // Search History
-    fun loadSearchHistory() {
-        persistenceManager?.let { pm ->
-            searchHistory.clear()
-            searchHistory.addAll(pm.loadSearchHistory())
-        }
-    }
-
-    fun saveSearchQuery(query: String) {
-        val trimmed = query.trim()
-        if (trimmed.isBlank()) return
-        val currentList = searchHistory.toMutableList()
-        currentList.remove(trimmed)
-        currentList.add(0, trimmed)
-        val cappedList = if (currentList.size > 10) currentList.take(10) else currentList
-
-        searchHistory.clear()
-        searchHistory.addAll(cappedList)
-        persistenceManager?.saveSearchHistory(cappedList)
-    }
-
-    fun deleteSearchQuery(query: String) {
-        searchHistory.remove(query)
-        persistenceManager?.saveSearchHistory(searchHistory)
     }
 
     private fun handleQueueLookaheadAutoplay() {
@@ -674,6 +326,49 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun playPrevious() = playerController.playPrevious()
     fun toggleRepeatMode() = playerController.cycleRepeatMode()
 
+    // EQUALIZER CONTROLS
+    fun setEqualizerPresetLive(presetIndex: Short) {
+        if (isSettingsInitialized()) {
+            settings.updateEqPresetIndex(presetIndex.toInt()) { playerController.setEqualizerPreset(it) }
+        } else {
+            playerController.setEqualizerPreset(presetIndex)
+        }
+    }
+
+    fun setEqualizerEnabled(enabled: Boolean) {
+        if (isSettingsInitialized()) {
+            settings.updateEqEnabled(enabled) { playerController.setEqualizerEnabled(it) }
+        } else {
+            playerController.setEqualizerEnabled(enabled)
+        }
+    }
+
+    fun setBandLevel(bandIndex: Int, dbValue: Float) {
+        if (isSettingsInitialized()) {
+            settings.updateSingleBand(bandIndex, dbValue) { idx, db -> playerController.setBandLevel(idx, db) }
+        } else {
+            playerController.setBandLevel(bandIndex, dbValue)
+        }
+    }
+
+    fun setBassBoostEnabled(enabled: Boolean) {
+        if (isSettingsInitialized()) {
+            settings.updateBassEnabled(enabled) { playerController.setBassBoostEnabled(it) }
+        } else {
+            playerController.setBassBoostEnabled(enabled)
+        }
+    }
+
+    fun setBassBoostStrength(strengthPercent: Float) {
+        if (isSettingsInitialized()) {
+            settings.updateBassStrength(strengthPercent) { playerController.setBassBoostStrength(it) }
+        } else {
+            playerController.setBassBoostStrength(strengthPercent)
+        }
+    }
+
+    fun setMasterVolume(volumePercent: Float) = playerController.setMasterVolume(volumePercent)
+
     fun updateSkipSilenceLive(enabled: Boolean) {
         if (isSettingsInitialized()) {
             settings.updateSkipSilence(enabled)
@@ -688,7 +383,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // Custom Playlist Management
+    // PLAYLIST MANAGEMENT
     fun createPlaylist(name: String, initialSongs: List<Song> = emptyList()): Playlist? {
         val createdPlaylist = playlistController.createCustomPlaylist(name) ?: return null
         initialSongs.forEach { song ->
@@ -702,6 +397,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun removeSongFromPlaylist(playlistId: String, song: Song) = playlistController.removeSongFromPlaylist(playlistId, song)
     fun renamePlaylist(playlistId: String, newName: String) = playlistController.renamePlaylist(playlistId, newName)
     fun deletePlaylist(playlistId: String) = playlistController.deletePlaylist(playlistId)
+
+    // LIKE HELPERS
+    fun isSongLiked(songId: String?): Boolean = likeManager.isSongLiked(songId)
+    fun toggleLike(song: Song?): Boolean = likeManager.toggleLike(song)
 
     fun triggerUpdateCheck() {
         viewModelScope.launch { UpdateChecker.check(context, isManualCheck = true) }

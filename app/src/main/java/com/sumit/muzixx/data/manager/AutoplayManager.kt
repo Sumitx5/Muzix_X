@@ -1,7 +1,7 @@
 package com.sumit.muzixx.data.manager
 
 import android.util.Log
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.data.model.toSong
 import com.sumit.muzixx.data.network.JioSaavnApiService
 import com.sumit.muzixx.data.network.YouTubeAudioExtractor

@@ -1,7 +1,7 @@
 package com.sumit.muzixx.data.network
 
 import android.util.Log
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

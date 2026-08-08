@@ -20,8 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.sumit.muzixx.data.Song
-import com.sumit.muzixx.data.Playlist
+import com.sumit.muzixx.data.model.Song
+import com.sumit.muzixx.data.model.Playlist
 import com.sumit.muzixx.utils.glassEffect
 
 @Composable

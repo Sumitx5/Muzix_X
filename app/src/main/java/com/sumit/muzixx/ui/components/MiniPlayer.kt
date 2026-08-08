@@ -24,7 +24,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.sumit.muzixx.R
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.utils.glassEffect
 
 @Composable

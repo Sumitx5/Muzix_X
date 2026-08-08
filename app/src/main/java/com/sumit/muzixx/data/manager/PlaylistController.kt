@@ -6,8 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
-import com.sumit.muzixx.data.Playlist
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Playlist
+import com.sumit.muzixx.data.model.Song
 import java.util.UUID
 
 class PlaylistController(private val onSavePlaylists: () -> Unit) {

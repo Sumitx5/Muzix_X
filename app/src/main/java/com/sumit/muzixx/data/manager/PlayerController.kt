@@ -19,7 +19,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.MoreExecutors
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.services.PlaybackService
 import com.sumit.muzixx.data.network.JioSaavnApiService
 import com.sumit.muzixx.data.model.RepeatMode

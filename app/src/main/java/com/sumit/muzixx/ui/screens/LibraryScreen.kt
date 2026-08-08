@@ -6,8 +6,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.sumit.muzixx.data.Playlist
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Playlist
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.viewmodel.MusicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)

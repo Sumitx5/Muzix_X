@@ -4,7 +4,7 @@ import android.content.Context
 import com.sumit.muzixx.utils.NetworkUtils.isWifiConnected
 import android.os.Environment
 import android.widget.Toast
-import com.sumit.muzixx.data.Song
+import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.data.repository.SettingsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
