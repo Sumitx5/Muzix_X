@@ -101,9 +101,10 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 mediaStateHolder.stopTracking()
             },
             onTrackSwitched = { switchedSong ->
-                persistenceManager?.resetLastPlaybackPosition()
                 if (::stats.isInitialized) stats.incrementSongsHeardCount()
+
                 persistenceManager?.saveLastPlayedSong(switchedSong)
+
                 addToRecentlyPlayed(switchedSong)
                 handleQueueLookaheadAutoplay()
             },
@@ -174,31 +175,76 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         if (skipSongRestoration) return
 
-        if (playerController.selectedSong == null) {
-            val lastSong = persistenceManager?.loadLastPlayedSong()
-            if (lastSong != null && lastSong.id.isNotBlank()) {
-                playerController.selectedSong = lastSong
-                playerController.submitQueueToPlayer(listOf(lastSong), 0, playWhenReady = false)
-                playerController.preparePlayerEngine()
+        val lastSong = persistenceManager?.loadLastPlayedSong()
+            ?: return
 
-                viewModelScope.launch(Dispatchers.IO) {
-                    val combinedQueue = autoplayManager.buildBootQueue(lastSong)
-                    if (combinedQueue.size > 1) {
-                        withContext(Dispatchers.Main) {
-                            playerController.submitQueueToPlayer(combinedQueue, 0, playWhenReady = false)
-                            currentPlaybackQueue = combinedQueue
-                        }
-                    }
+        if (lastSong.id.isBlank()) return
+
+        val savedProgress =
+            persistenceManager?.getLastPlaybackPosition(lastSong.id) ?: 0L
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val combinedQueue =
+                    autoplayManager.buildBootQueue(lastSong)
+
+                val queue = combinedQueue.ifEmpty {
+                    listOf(lastSong)
                 }
 
-                val savedProgress = persistenceManager?.getLastPlaybackPosition() ?: 0L
-                if (savedProgress > 0L) seekTo(savedProgress)
+                withContext(Dispatchers.Main) {
+                    playerController.selectedSong = lastSong
+
+                    playerController.submitQueueToPlayer(
+                        queue,
+                        0,
+                        playWhenReady = false
+                    )
+
+                    currentPlaybackQueue = queue
+
+                    playerController.preparePlayerEngine()
+
+                    if (savedProgress > 0L) {
+                        seekTo(savedProgress)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(
+                    "MusicViewModel",
+                    "Failed restoring previous playback",
+                    e
+                )
+
+                withContext(Dispatchers.Main) {
+                    playerController.selectedSong = lastSong
+
+                    playerController.submitQueueToPlayer(
+                        listOf(lastSong),
+                        0,
+                        playWhenReady = false
+                    )
+
+                    currentPlaybackQueue = listOf(lastSong)
+
+                    playerController.preparePlayerEngine()
+
+                    if (savedProgress > 0L) {
+                        seekTo(savedProgress)
+                    }
+                }
             }
         }
     }
 
     fun saveCurrentPlaybackPosition() {
-        persistenceManager?.saveCurrentPlaybackPosition(currentPosition)
+        val song = selectedSong ?: return
+        val pm = persistenceManager ?: return
+
+        pm.saveCurrentPlaybackPosition(
+            songId = song.id,
+            positionMs = currentPosition
+        )
     }
 
     fun overwriteStatsFromCloud(

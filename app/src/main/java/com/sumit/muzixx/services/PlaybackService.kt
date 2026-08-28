@@ -9,6 +9,7 @@ import android.util.Log
 import androidx.annotation.OptIn
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -23,6 +24,9 @@ import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
+import com.sumit.muzixx.R
+import com.sumit.muzixx.data.manager.PlaybackPersistenceManager
+import com.sumit.muzixx.data.manager.PlaylistController
 import com.sumit.muzixx.data.manager.SettingsManager
 import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.utils.LikeManager
@@ -32,6 +36,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class PlaybackService : MediaSessionService() {
 
@@ -54,7 +59,34 @@ class PlaybackService : MediaSessionService() {
     private var bassBoost: BassBoost? = null
 
     private var normalizationEnabled = false
-    private var isCurrentTrackLiked = false
+
+    private var persistenceManager: PlaybackPersistenceManager? = null
+    private val playlistController: PlaylistController by lazy {
+        PlaylistController(onSavePlaylists = {
+            persistenceManager?.saveCustomPlaylistsJson(playlistController.getCustomPlaylistsJson())
+        })
+    }
+
+    private fun refreshPlaylistsFromStorage() {
+        val savedJson = persistenceManager?.loadCustomPlaylistsJson()
+        if (!savedJson.isNullOrEmpty()) {
+            playlistController.loadPlaylistsFromJson(savedJson)
+        }
+    }
+
+    fun isSongLiked(songId: String?): Boolean {
+        if (songId.isNullOrEmpty()) return false
+        refreshPlaylistsFromStorage()
+        return likeManager.isSongLiked(songId)
+    }
+
+    fun toggleLike(song: Song?): Boolean {
+        if (song == null) return false
+        refreshPlaylistsFromStorage()
+        val result = likeManager.toggleLike(song)
+        persistenceManager?.saveCustomPlaylistsJson(playlistController.getCustomPlaylistsJson())
+        return result
+    }
 
     private val callback = @UnstableApi
     object : MediaSession.Callback {
@@ -81,7 +113,8 @@ class PlaybackService : MediaSessionService() {
             }
 
             val customCommands = sessionCommandsBuilder.build()
-            val customLayoutList = listOf(getLikeCommandButton(isCurrentTrackLiked))
+
+            val customLayoutList = listOf(getLikeCommandButton())
 
             return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                 .setAvailableSessionCommands(customCommands)
@@ -99,24 +132,33 @@ class PlaybackService : MediaSessionService() {
 
             when (customCommand.customAction) {
                 ACTION_TOGGLE_LIKE -> {
-                    val currentMediaItem = player.currentMediaItem
-                    if (currentMediaItem != null) {
-                        val mediaMetadata = currentMediaItem.mediaMetadata
-                        val song = Song(
-                            id = currentMediaItem.mediaId,
-                            title = mediaMetadata.title?.toString() ?: "Unknown",
-                            artist = mediaMetadata.artist?.toString() ?: "Unknown",
-                            artUri = mediaMetadata.artworkUri?.toString(),
-                            uri = currentMediaItem.localConfiguration?.uri?.toString() ?: "",
-                            duration = player.duration.coerceAtLeast(0L),
-                            isStreaming = false,
-                            type = "LOCAL"
-                        )
+                    serviceScope.launch(Dispatchers.Main) {
+                        val currentMediaItem = player.currentMediaItem
+                        if (currentMediaItem != null) {
+                            val mediaMetadata = currentMediaItem.mediaMetadata
+                            val songDuration = if (player.duration != C.TIME_UNSET) player.duration else 0L
+                            val songType = mediaMetadata.extras?.getString("type") ?: "LOCAL"
 
-                        serviceScope.launch {
-                            val nowLiked = likeManager.toggleLike(song)
-                            isCurrentTrackLiked = nowLiked
-                            mediaSession?.setCustomLayout(listOf(getLikeCommandButton(isCurrentTrackLiked)))
+                            val song = Song(
+                                id = currentMediaItem.mediaId,
+                                title = mediaMetadata.title?.toString() ?: "Unknown",
+                                artist = mediaMetadata.artist?.toString() ?: "Unknown",
+                                artUri = mediaMetadata.artworkUri?.toString(),
+                                uri = currentMediaItem.localConfiguration?.uri?.toString() ?: "",
+                                duration = songDuration.coerceAtLeast(0L),
+                                isStreaming = songType != "LOCAL",
+                                type = songType
+                            )
+
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val isLikedNow = toggleLike(song)
+                                    Log.d(TAG, "Notification Toggle: '${song.title}' liked state = $isLikedNow")
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "Error toggling like status from notification", e)
+                                }
+                            }
+                            updateNotificationLayout()
                         }
                     }
                 }
@@ -219,12 +261,15 @@ class PlaybackService : MediaSessionService() {
         super.onCreate()
         createChannel()
         settingsManager = SettingsManager(this)
+        persistenceManager = PlaybackPersistenceManager(this)
+
+        refreshPlaylistsFromStorage()
 
         likeManager = LikeManager(
-            getPlaylists = { emptyList() },
-            createPlaylist = { _ -> },
-            addSongToPlaylist = { _, _ -> },
-            removeSongFromPlaylist = { _, _ -> }
+            getPlaylists = { playlistController.playlists },
+            createPlaylist = { name -> playlistController.createCustomPlaylist(name) },
+            addSongToPlaylist = { playlistId, song -> playlistController.addSongToPlaylist(playlistId, song) },
+            removeSongFromPlaylist = { playlistId, song -> playlistController.removeSongFromPlaylist(playlistId, song) }
         )
 
         val cachingDataSourceFactory = com.sumit.muzixx.data.manager.MuzixCacheManager.createCacheDataSourceFactory(this)
@@ -255,15 +300,9 @@ class PlaybackService : MediaSessionService() {
                 initializeEffectsPipeline(audioSessionId)
             }
 
-            override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 super.onMediaItemTransition(mediaItem, reason)
-                val songId = mediaItem?.mediaId
-                if (songId != null) {
-                    serviceScope.launch {
-                        isCurrentTrackLiked = likeManager.isSongLiked(songId)
-                        mediaSession?.setCustomLayout(listOf(getLikeCommandButton(isCurrentTrackLiked)))
-                    }
-                }
+                updateNotificationLayout()
             }
         })
 
@@ -284,6 +323,7 @@ class PlaybackService : MediaSessionService() {
             .setNotificationId(NOTIFICATION_ID)
             .build()
 
+        notificationProvider.setSmallIcon(R.drawable.heart_shape)
         setMediaNotificationProvider(notificationProvider)
 
         mediaSession = MediaSession.Builder(this, player)
@@ -291,18 +331,30 @@ class PlaybackService : MediaSessionService() {
             .build()
     }
 
-    private fun getLikeCommandButton(isLiked: Boolean): CommandButton {
+
+
+    private fun getLikeCommandButton(): CommandButton {
+        val currentMediaId = player.currentMediaItem?.mediaId
+        val isLiked = isSongLiked(currentMediaId)
+
         val iconRes = if (isLiked) {
-            android.R.drawable.btn_star_big_on
+            R.drawable.heart_filled
         } else {
-            android.R.drawable.btn_star_big_off
+            R.drawable.heart_outlined
         }
 
+        val title = if (isLiked) "Remove from Liked" else "Add to Liked"
+
         return CommandButton.Builder()
-            .setDisplayName(if (isLiked) "Unlike" else "Like")
+            .setDisplayName(title)
             .setIconResId(iconRes)
             .setSessionCommand(SessionCommand(ACTION_TOGGLE_LIKE, android.os.Bundle.EMPTY))
             .build()
+    }
+
+    private fun updateNotificationLayout() {
+        val updatedButton = getLikeCommandButton()
+        mediaSession?.setCustomLayout(listOf(updatedButton))
     }
 
     @OptIn(UnstableApi::class)
