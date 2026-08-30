@@ -1,6 +1,8 @@
 package com.sumit.muzixx.ui.components
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +29,7 @@ import com.sumit.muzixx.R
 import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.utils.glassEffect
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MiniPlayer(
     song: Song?,
@@ -54,22 +57,22 @@ fun MiniPlayer(
             )
             .glassEffect(shape = RoundedCornerShape(20.dp))
             .clickable { onMiniPlayerClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = song.artUri,
             contentDescription = "Mini Player Album Art",
             modifier = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(46.dp)
+                .clip(RoundedCornerShape(14.dp))
                 .background(onContainerColor.copy(alpha = 0.1f)),
             error = painterResource(id = R.drawable.default_music),
             placeholder = painterResource(id = R.drawable.default_music),
             contentScale = ContentScale.Crop
         )
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Column(
             modifier = Modifier.weight(1f)
@@ -80,7 +83,11 @@ fun MiniPlayer(
                 fontWeight = FontWeight.Bold,
                 color = onContainerColor,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Clip,
+                modifier = Modifier.basicMarquee(
+                    iterations = Int.MAX_VALUE,
+                    velocity = 30.dp
+                )
             )
 
             Spacer(modifier = Modifier.height(2.dp))
@@ -98,7 +105,7 @@ fun MiniPlayer(
 
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(40.dp)
                 .clip(RoundedCornerShape(14.dp))
                 .background(if (isPlaying) accentColor else onContainerColor.copy(alpha = 0.08f)),
             contentAlignment = Alignment.Center
