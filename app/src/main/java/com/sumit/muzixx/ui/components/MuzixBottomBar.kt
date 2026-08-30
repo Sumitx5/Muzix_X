@@ -43,7 +43,7 @@ fun MuzixBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 6.dp),
+                .padding(horizontal = 2.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -95,7 +95,7 @@ private fun MuzixCapsuleItem(
     Box(
         modifier = Modifier
             .fillMaxWidth(0.9f)
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(containerColor)
             .clickable { onClick() }
             .padding(vertical = 6.dp),
