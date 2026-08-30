@@ -57,7 +57,7 @@ fun MiniPlayer(
             )
             .glassEffect(shape = RoundedCornerShape(20.dp))
             .clickable { onMiniPlayerClick() }
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
