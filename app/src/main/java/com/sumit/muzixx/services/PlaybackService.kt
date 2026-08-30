@@ -19,12 +19,12 @@ import androidx.media3.session.CommandButton
 import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import androidx.media3.session.R
 import androidx.media3.session.SessionCommand
 import androidx.media3.session.SessionCommands
 import androidx.media3.session.SessionResult
 import com.google.common.util.concurrent.Futures
 import com.google.common.util.concurrent.ListenableFuture
-import com.sumit.muzixx.R
 import com.sumit.muzixx.data.manager.PlaybackPersistenceManager
 import com.sumit.muzixx.data.manager.PlaylistController
 import com.sumit.muzixx.data.manager.SettingsManager
@@ -323,7 +323,7 @@ class PlaybackService : MediaSessionService() {
             .setNotificationId(NOTIFICATION_ID)
             .build()
 
-        notificationProvider.setSmallIcon(R.drawable.heart_shape)
+        notificationProvider.setSmallIcon(R.drawable.media_session_service_notification_ic_music_note)
         setMediaNotificationProvider(notificationProvider)
 
         mediaSession = MediaSession.Builder(this, player)
@@ -338,9 +338,9 @@ class PlaybackService : MediaSessionService() {
         val isLiked = isSongLiked(currentMediaId)
 
         val iconRes = if (isLiked) {
-            R.drawable.heart_filled
+            R.drawable.media3_icon_heart_filled
         } else {
-            R.drawable.heart_outlined
+            R.drawable.media3_icon_heart_unfilled
         }
 
         val title = if (isLiked) "Remove from Liked" else "Add to Liked"
