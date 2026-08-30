@@ -413,7 +413,7 @@ fun HomeScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = if (selectedSong != null) 92.dp else 24.dp)
+                                contentPadding = PaddingValues(bottom = if (selectedSong != null) 122.dp else 44.dp)
                             ) {
                                 item(key = "playlist_header") {
                                     Column(
