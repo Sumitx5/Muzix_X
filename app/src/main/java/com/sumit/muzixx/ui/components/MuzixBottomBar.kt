@@ -10,14 +10,12 @@ import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.utils.glassEffect
 
@@ -51,7 +49,6 @@ fun MuzixBottomBar(
         ) {
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 MuzixCapsuleItem(
-                    label = "Home",
                     icon = Icons.Rounded.Home,
                     isSelected = currentScreen == "Home",
                     onClick = { onTabSelected("Home") }
@@ -60,7 +57,6 @@ fun MuzixBottomBar(
 
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 MuzixCapsuleItem(
-                    label = "Search",
                     icon = Icons.Rounded.Search,
                     isSelected = currentScreen == "Search",
                     onClick = { onTabSelected("Search") }
@@ -69,7 +65,6 @@ fun MuzixBottomBar(
 
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 MuzixCapsuleItem(
-                    label = "Library",
                     icon = Icons.Rounded.LibraryMusic,
                     isSelected = currentScreen == "Library",
                     onClick = { onTabSelected("Library") }
@@ -81,7 +76,6 @@ fun MuzixBottomBar(
 
 @Composable
 private fun MuzixCapsuleItem(
-    label: String,
     icon: ImageVector,
     isSelected: Boolean,
     onClick: () -> Unit
@@ -104,7 +98,7 @@ private fun MuzixCapsuleItem(
             .clip(RoundedCornerShape(16.dp))
             .background(containerColor)
             .clickable { onClick() }
-            .padding(vertical = 10.dp),
+            .padding(vertical = 6.dp),
         contentAlignment = Alignment.Center
     ) {
         Row(
@@ -113,17 +107,12 @@ private fun MuzixCapsuleItem(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
+                contentDescription = "Items",
                 tint = contentColor,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                color = contentColor
-            )
+
         }
     }
 }
