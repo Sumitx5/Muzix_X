@@ -293,7 +293,12 @@ class PlayerController(
             .build()
     }
 
-    fun submitQueueToPlayer(songList: List<Song>, startIndex: Int, playWhenReady: Boolean = true) {
+    fun submitQueueToPlayer(
+        songList: List<Song>,
+        startIndex: Int,
+        playWhenReady: Boolean = true,
+        startPositionMs: Long = 0L
+    ) {
         if (songList.isEmpty() || startIndex !in songList.indices) return
 
         val controller = mediaController ?: run {
@@ -328,7 +333,7 @@ class PlayerController(
                     }
 
                     controller.stop()
-                    controller.setMediaItems(mediaItems, activePlaylistIndex, 0L)
+                    controller.setMediaItems(mediaItems, activePlaylistIndex, startPositionMs.coerceAtLeast(0L))
                     controller.prepare()
 
                     if (playWhenReady) {
@@ -336,7 +341,7 @@ class PlayerController(
                         Log.d(TAG, "ExoPlayer playback initialized successfully.")
                     } else {
                         controller.pause()
-                        Log.d(TAG, "ExoPlayer track hydrated silently for persistence setup.")
+                        Log.d(TAG, "ExoPlayer track hydrated silently for persistence setup at position ${startPositionMs}ms.")
                     }
 
                     val nextIndex = activePlaylistIndex + 1

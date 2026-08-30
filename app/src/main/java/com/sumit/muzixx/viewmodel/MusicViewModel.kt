@@ -28,7 +28,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val context get() = getApplication<Application>().applicationContext
 
-    // MANAGERS
+    //Manager
     val mediaStateHolder by lazy { MediaStateHolder(viewModelScope) }
     private val ytScraper = YouTubeMusicScraper()
     private val ytExtractor = YouTubeAudioExtractor()
@@ -77,7 +77,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
-    // EXPOSED PLAYER STATES
+    //Player States
     val isPlaying get() = playerController.isPlaying
     val selectedSong get() = playerController.selectedSong
     val currentPosition get() = mediaStateHolder.currentPosition
@@ -87,7 +87,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val activePlaylistIndex get() = playerController.activePlaylistIndex
     val activePlaybackQueue get() = playerController.activePlaybackQueue
 
-    // CENTRALIZED PLAYER CONTROLLER
+    //Player Controller
     private val playerController by lazy {
         PlayerController(
             scope = viewModelScope,
@@ -133,19 +133,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     var currentPlaybackQueue by mutableStateOf<List<Song>>(emptyList())
         private set
 
-    // LOCAL MUSIC & RECENTLY PLAYED STATE
+    //Local Music & Recently Played Songs
     val songs = mutableStateListOf<Song>()
     val recentlyPlayedSongs = mutableStateListOf<Song>()
     var isLocalSongsLoading by mutableStateOf(false)
         private set
 
-    // PLAYLIST DELEGATION
+    //Playlist Delegation
     val playlists get() = playlistController.playlists
     var selectedPlaylist: Playlist?
         get() = playlistController.selectedPlaylist
         set(value) { playlistController.selectedPlaylist = value }
 
-    // INITIALIZATIONS
+    //Initilizations
     fun initSettings() {
         if (!::settings.isInitialized) settings = SettingsRepository(context, viewModelScope)
     }
@@ -180,58 +180,41 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         if (lastSong.id.isBlank()) return
 
-        val savedProgress =
-            persistenceManager?.getLastPlaybackPosition(lastSong.id) ?: 0L
+        val savedProgress = persistenceManager?.getLastPlaybackPosition(lastSong.id) ?: 0L
 
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val combinedQueue =
-                    autoplayManager.buildBootQueue(lastSong)
-
-                val queue = combinedQueue.ifEmpty {
-                    listOf(lastSong)
-                }
+                val combinedQueue = autoplayManager.buildBootQueue(lastSong)
+                val queue = combinedQueue.ifEmpty { listOf(lastSong) }
 
                 withContext(Dispatchers.Main) {
                     playerController.selectedSong = lastSong
 
                     playerController.submitQueueToPlayer(
-                        queue,
-                        0,
-                        playWhenReady = false
+                        songList = queue,
+                        startIndex = 0,
+                        playWhenReady = false,
+                        startPositionMs = savedProgress
                     )
 
                     currentPlaybackQueue = queue
-
                     playerController.preparePlayerEngine()
-
-                    if (savedProgress > 0L) {
-                        seekTo(savedProgress)
-                    }
                 }
             } catch (e: Exception) {
-                Log.e(
-                    "MusicViewModel",
-                    "Failed restoring previous playback",
-                    e
-                )
+                Log.e("MusicViewModel", "Failed restoring previous playback", e)
 
                 withContext(Dispatchers.Main) {
                     playerController.selectedSong = lastSong
 
                     playerController.submitQueueToPlayer(
-                        listOf(lastSong),
-                        0,
-                        playWhenReady = false
+                        songList = listOf(lastSong),
+                        startIndex = 0,
+                        playWhenReady = false,
+                        startPositionMs = savedProgress
                     )
 
                     currentPlaybackQueue = listOf(lastSong)
-
                     playerController.preparePlayerEngine()
-
-                    if (savedProgress > 0L) {
-                        seekTo(savedProgress)
-                    }
                 }
             }
         }
@@ -291,7 +274,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // PLAYBACK CONTROLS
+    //Playback Controls
     fun playMusicCollection(songList: List<Song>, startIndex: Int) {
         if (songList.isEmpty() || startIndex !in songList.indices) return
         playerController.submitQueueToPlayer(songList, startIndex)
@@ -367,12 +350,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         playerController.seekTo(position)
     }
 
-    fun togglePlayPause() = playerController.togglePlayPause()
-    fun playNext() = playerController.playNext()
-    fun playPrevious() = playerController.playPrevious()
+    fun togglePlayPause() {
+        saveCurrentPlaybackPosition()
+        playerController.togglePlayPause()
+    }
+
+    fun playNext() {
+        saveCurrentPlaybackPosition()
+        playerController.playNext()
+    }
+
+    fun playPrevious() {
+        saveCurrentPlaybackPosition()
+        playerController.playPrevious()
+    }
+
     fun toggleRepeatMode() = playerController.cycleRepeatMode()
 
-    // EQUALIZER CONTROLS
+    //Equalizer Controls
     fun setEqualizerPresetLive(presetIndex: Short) {
         if (isSettingsInitialized()) {
             settings.updateEqPresetIndex(presetIndex.toInt()) { playerController.setEqualizerPreset(it) }
@@ -429,7 +424,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // PLAYLIST MANAGEMENT
+    //Playlist Management
     fun createPlaylist(name: String, initialSongs: List<Song> = emptyList()): Playlist? {
         val createdPlaylist = playlistController.createCustomPlaylist(name) ?: return null
         initialSongs.forEach { song ->
@@ -444,7 +439,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     fun renamePlaylist(playlistId: String, newName: String) = playlistController.renamePlaylist(playlistId, newName)
     fun deletePlaylist(playlistId: String) = playlistController.deletePlaylist(playlistId)
 
-    // LIKE HELPERS
+    //Like helpers
     fun isSongLiked(songId: String?): Boolean = likeManager.isSongLiked(songId)
     fun toggleLike(song: Song?): Boolean = likeManager.toggleLike(song)
 
@@ -456,6 +451,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     override fun onCleared() {
         super.onCleared()
+        saveCurrentPlaybackPosition()
         if (::stats.isInitialized) stats.stopPlaybackTimer()
         playerController.release()
     }
