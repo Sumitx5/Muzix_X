@@ -34,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.sumit.muzixx.R
+import com.sumit.muzixx.data.model.SaavnCloudPlaylistObject
 import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.ui.components.HomeNavigationDrawer
 import com.sumit.muzixx.utils.glassEffect
@@ -60,32 +61,27 @@ fun HomeScreen(
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val accentColor = MaterialTheme.colorScheme.primary
 
-    val currentUserName = when {
-        authViewModel.currentUser?.displayName?.isNotBlank() == true -> {
-            authViewModel.currentUser?.displayName ?: "User"
+    val currentUserName = remember(authViewModel.currentUser, viewModel.settings.userName) {
+        when {
+            authViewModel.currentUser?.displayName?.isNotBlank() == true -> authViewModel.currentUser?.displayName ?: "User"
+            viewModel.isSettingsInitialized() -> viewModel.settings.userName
+            else -> "User"
         }
-        viewModel.isSettingsInitialized() -> {
-            viewModel.settings.userName
-        }
-        else -> "User"
     }
 
     val hindiHits = viewModel.contentManager.saavnHminiHits
     val chuddyBuddies = viewModel.contentManager.saavnTrendingSongs
     val baarish = viewModel.contentManager.saavnNewReleases
     val selectedSong = viewModel.selectedSong
-
-    val recentlyHeard = remember(viewModel.recentlyPlayedSongs) {
-        viewModel.recentlyPlayedSongs
-    }
+    val ytTrendingSongs = viewModel.contentManager.youtubeTrendingSongs
+    val recommendedSongs = viewModel.contentManager.recommendedSongs
+    val recentlyHeard = viewModel.recentlyPlayedSongs
 
     LaunchedEffect(recentlyHeard.size) {
         if (recentlyHeard.isNotEmpty()) {
             viewModel.contentManager.fetchRecommendationsFromHistory(recentlyHeard)
         }
     }
-
-    val recommendedSongs = viewModel.contentManager.recommendedSongs
 
     val (isLastDayOfMonth, currentMonthName) = remember {
         val calendar = Calendar.getInstance()
@@ -95,9 +91,9 @@ fun HomeScreen(
         Pair(currentDay == lastDay, monthLabel)
     }
 
-    var featured90sPlaylists by remember { mutableStateOf<List<com.sumit.muzixx.data.model.SaavnCloudPlaylistObject>>(emptyList()) }
-    var romancePlaylists by remember { mutableStateOf<List<com.sumit.muzixx.data.model.SaavnCloudPlaylistObject>>(emptyList()) }
-    var partyHitsPlaylists by remember { mutableStateOf<List<com.sumit.muzixx.data.model.SaavnCloudPlaylistObject>>(emptyList()) } // Example: easily add more!
+    var featured90sPlaylists by remember { mutableStateOf<List<SaavnCloudPlaylistObject>>(emptyList()) }
+    var romancePlaylists by remember { mutableStateOf<List<SaavnCloudPlaylistObject>>(emptyList()) }
+    var partyHitsPlaylists by remember { mutableStateOf<List<SaavnCloudPlaylistObject>>(emptyList()) }
 
     var is90sLoading by remember { mutableStateOf(true) }
     var isRomanceLoading by remember { mutableStateOf(true) }
@@ -124,8 +120,6 @@ fun HomeScreen(
             isPartyLoading = false
         }
     }
-
-    val ytTrendingSongs = viewModel.contentManager.youtubeTrendingSongs
 
     BackHandler(drawerState.isOpen) {
         scope.launch { drawerState.close() }
@@ -171,7 +165,7 @@ fun HomeScreen(
                 .background(MaterialTheme.colorScheme.background)
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Top Header
+                // Header
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -195,15 +189,13 @@ fun HomeScreen(
                     }
                 }
 
-                // Content Area
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
-                        bottom = if (selectedSong != null) 144.dp else 24.dp
+                        bottom = if (selectedSong != null) 144.dp else 44.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
-                    // Monthly Recap
                     if (isLastDayOfMonth) {
                         item(key = "monthly_recap_section") {
                             Box(
@@ -246,7 +238,6 @@ fun HomeScreen(
                         }
                     }
 
-                    // Recommended Songs
                     item(key = "song_recomends") {
                         if (recommendedSongs.isNotEmpty() || viewModel.contentManager.isRecommendationsLoading) {
                             SongSection(
@@ -255,16 +246,12 @@ fun HomeScreen(
                                 isLoading = viewModel.contentManager.isRecommendationsLoading,
                                 isGrid = true,
                                 onClick = { index ->
-                                    viewModel.playYouTubeSearchResultWithAutoplay(
-                                        recommendedSongs,
-                                        index
-                                    )
+                                    viewModel.playYouTubeSearchResultWithAutoplay(recommendedSongs, index)
                                 }
                             )
                         }
                     }
 
-                    // Trending Today
                     item(key = "trending_songs") {
                         SongSection(
                             title = "Trending Today",
@@ -276,7 +263,6 @@ fun HomeScreen(
                         )
                     }
 
-                    // Recently Heard
                     if (recentlyHeard.isNotEmpty()) {
                         item(key = "recently_heard_songs") {
                             SongSection(
@@ -315,7 +301,6 @@ fun HomeScreen(
                         )
                     }
 
-                    //Cloud Playlists 90
                     item(key = "cloud_playlists_90") {
                         CloudPlaylistSection(
                             title = "Best of 90's Playlists",
@@ -375,7 +360,7 @@ fun HomeScreen(
                 }
             }
 
-            //Playlist Details Modal Overlay
+            // Playlist Details Overlay
             AnimatedVisibility(
                 visible = viewModel.contentManager.currentCloudPlaylistName != null,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
@@ -383,7 +368,7 @@ fun HomeScreen(
             ) {
                 val playlistName = viewModel.contentManager.currentCloudPlaylistName ?: ""
                 val playlistSongs = viewModel.contentManager.currentCloudPlaylistSongs
-                val headerCover = playlistSongs.firstOrNull()?.artUri
+                val headerCover = remember(playlistSongs) { playlistSongs.firstOrNull()?.artUri }
 
                 Column(
                     modifier = Modifier
@@ -577,7 +562,9 @@ private fun SongSection(
     isGrid: Boolean = false,
     onClick: (Int) -> Unit
 ) {
-    Column {
+    val chunkedSongs = remember(songs) { songs.chunked(2) }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleLarge,
@@ -588,61 +575,82 @@ private fun SongSection(
 
         Spacer(Modifier.height(12.dp))
 
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(160.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+        when {
+            isLoading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                }
             }
-        } else if (songs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(60.dp)
-                    .padding(horizontal = 16.dp),
-                contentAlignment = Alignment.CenterStart
-            ) {
-                Text(
-                    text = "No tracks found here.\nMust Be Server Error.\nWill Be Back Soon.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            songs.isEmpty() -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(60.dp)
+                        .padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Text(
+                        text = "No tracks found here.\nMust Be Server Error.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
-        } else if (isGrid) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.padding(horizontal = 16.dp)
-            ) {
-                songs.chunked(2).forEachIndexed { rowIndex, pair ->
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        val leftIndex = rowIndex * 2
-                        Box(modifier = Modifier.weight(1f)) {
-                            SongCompactChip(song = pair[0]) { onClick(leftIndex) }
-                        }
-                        if (pair.size > 1) {
-                            val rightIndex = leftIndex + 1
+            isGrid -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    chunkedSongs.forEachIndexed { rowIndex, pair ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            val leftIndex = rowIndex * 2
+
                             Box(modifier = Modifier.weight(1f)) {
-                                SongCompactChip(song = pair[1]) { onClick(rightIndex) }
+                                SongCompactChip(
+                                    song = pair[0],
+                                    onClick = { onClick(leftIndex) }
+                                )
                             }
-                        } else {
-                            Spacer(modifier = Modifier.weight(1f))
+
+                            if (pair.size > 1) {
+                                val rightIndex = leftIndex + 1
+                                Box(modifier = Modifier.weight(1f)) {
+                                    SongCompactChip(
+                                        song = pair[1],
+                                        onClick = { onClick(rightIndex) }
+                                    )
+                                }
+                            } else {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
                         }
                     }
                 }
             }
-        } else {
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                itemsIndexed(items = songs) { index, song ->
-                    SongCard(song = song) { onClick(index) }
+            else -> {
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                ) {
+                    itemsIndexed(
+                        items = songs,
+                        key = { index, song -> song.id.ifEmpty { "song_$index" } }
+                    ) { index, song ->
+                        SongCard(
+                            song = song,
+                            onClick = { onClick(index) }
+                        )
+                    }
                 }
             }
         }
@@ -657,10 +665,8 @@ private fun SongCompactChip(
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassEffect(RoundedCornerShape(12.dp))
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -668,14 +674,17 @@ private fun SongCompactChip(
         ) {
             AsyncImage(
                 model = song.artUri,
-                contentDescription = song.title,
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .size(40.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp)),
+                placeholder = painterResource(R.drawable.default_music),
+                error = painterResource(R.drawable.default_music)
             )
 
             Spacer(modifier = Modifier.width(10.dp))
+
             Text(
                 text = song.title,
                 style = MaterialTheme.typography.bodyMedium,
@@ -690,23 +699,26 @@ private fun SongCompactChip(
 }
 
 @Composable
-private fun SongCard(song: Song, onClick: () -> Unit) {
+private fun SongCard(
+    song: Song,
+    onClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .width(100.dp)
             .clip(RoundedCornerShape(8.dp))
-            .clickable { onClick() }
+            .clickable(onClick = onClick)
     ) {
         AsyncImage(
             model = song.artUri,
-            contentDescription = "Song cover art",
+            contentDescription = null,
             modifier = Modifier
                 .size(100.dp)
                 .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
-            error = painterResource(R.drawable.default_music),
+            contentScale = ContentScale.Crop,
             placeholder = painterResource(R.drawable.default_music),
-            contentScale = ContentScale.Crop
+            error = painterResource(R.drawable.default_music)
         )
 
         Spacer(Modifier.height(8.dp))
@@ -820,7 +832,7 @@ fun <T> CloudPlaylistSection(
                 contentAlignment = Alignment.CenterStart
             ) {
                 Text(
-                    text = "No playlists found.\nMust Be Server Error.\nWill Be Back Soon.",
+                    text = "No playlists found.\nMust Be Server Error.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -832,7 +844,10 @@ fun <T> CloudPlaylistSection(
             ) {
                 itemsIndexed(
                     items = playlists,
-                    key = { index, item -> playlistId(item).ifEmpty { "playlist_$index" } }
+                    key = { index, item ->
+                        val id = playlistId(item)
+                        id.ifEmpty { "playlist_$index" }
+                    }
                 ) { _, playlist ->
                     val id = playlistId(playlist)
                     val name = playlistTitle(playlist)
