@@ -192,7 +192,7 @@ fun HomeScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
-                        bottom = if (selectedSong != null) 122.dp else 60.dp
+                        bottom = if (selectedSong != null) 140.dp else 60.dp
                     ),
                     verticalArrangement = Arrangement.spacedBy(24.dp)
                 ) {
