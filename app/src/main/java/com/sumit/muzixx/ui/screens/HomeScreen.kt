@@ -242,7 +242,7 @@ fun HomeScreen(
                         if (recommendedSongs.isNotEmpty() || viewModel.contentManager.isRecommendationsLoading) {
                             SongSection(
                                 title = "Recommended For You",
-                                songs = recommendedSongs,
+                                songs = viewModel.contentManager.recommendedSongs,
                                 isLoading = viewModel.contentManager.isRecommendationsLoading,
                                 isGrid = true,
                                 onClick = { index ->
