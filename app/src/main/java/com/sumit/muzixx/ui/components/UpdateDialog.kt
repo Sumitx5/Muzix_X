@@ -1,7 +1,11 @@
 package com.sumit.muzixx.ui.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -9,7 +13,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.data.network.UpdateChecker
 import com.sumit.muzixx.utils.glassEffect
@@ -50,7 +57,11 @@ fun UpdateDialog() {
                         text = when {
                             UpdateChecker.isUpdateChecking -> "Checking for updates..."
                             isUpToDate -> "Already Updated"
-                            else -> "New Update Available!"
+                            else -> if (UpdateChecker.latestTagName.isNotBlank()) {
+                                "What's New in ${UpdateChecker.latestTagName}"
+                            } else {
+                                "New Update Available!"
+                            }
                         },
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
@@ -65,12 +76,55 @@ fun UpdateDialog() {
                         )
                     }
 
-                    Text(
-                        text = UpdateChecker.updateStatusMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 24.dp)
-                    )
+                    if (!UpdateChecker.isUpdateChecking && UpdateChecker.isUpdateAvailable && UpdateChecker.latestChangelogPoints.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 20.dp),
+                            horizontalAlignment = Alignment.Start
+                        ) {
+                            Text(
+                                text = "Updates & Changes",
+                                style = MaterialTheme.typography.labelLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 240.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                items(UpdateChecker.latestChangelogPoints) { point ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.Top
+                                    ) {
+                                        Text(
+                                            text = "•",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                        Text(
+                                            text = parseMarkdownInline(point),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = UpdateChecker.updateStatusMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 24.dp)
+                        )
+                    }
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -106,6 +160,12 @@ fun UpdateDialog() {
                                         uriHandler.openUri("https://github.com/Sumit282698/Muzix_X/releases/latest")
                                     }
                                 ) {
+                                    Icon(
+                                        imageVector = Icons.Rounded.Download,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
                                     Text("Download")
                                 }
                             }
@@ -114,5 +174,20 @@ fun UpdateDialog() {
                 }
             }
         }
+    }
+}
+
+private fun parseMarkdownInline(text: String) = buildAnnotatedString {
+    val parts = text.split("*")
+    var isBold = false
+    for (part in parts) {
+        if (isBold) {
+            withStyle(style = SpanStyle(fontWeight = FontWeight.Bold)) {
+                append(part)
+            }
+        } else {
+            append(part)
+        }
+        isBold = !isBold
     }
 }

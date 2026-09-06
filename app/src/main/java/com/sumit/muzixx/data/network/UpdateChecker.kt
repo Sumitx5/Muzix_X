@@ -7,6 +7,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.Proxy
 import java.net.URL
@@ -16,6 +17,12 @@ object UpdateChecker {
         private set
 
     var updateStatusMessage by mutableStateOf("")
+        private set
+
+    var latestChangelogPoints by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    var latestTagName by mutableStateOf("")
         private set
 
     var showUpdateDialog by mutableStateOf(false)
@@ -46,6 +53,37 @@ object UpdateChecker {
         return false
     }
 
+    private fun extractUpdatesSection(rawBody: String): List<String> {
+        if (rawBody.isBlank()) return emptyList()
+
+        val lines = rawBody.lines()
+        val updatesList = mutableListOf<String>()
+        var isUnderUpdates = false
+
+        for (line in lines) {
+            val trimmed = line.trim()
+            if (trimmed.startsWith("### Updates", ignoreCase = true) || trimmed.startsWith("## Updates", ignoreCase = true)) {
+                isUnderUpdates = true
+                continue
+            }
+
+            if (isUnderUpdates && trimmed.startsWith("### ")) {
+                break
+            }
+
+            if (isUnderUpdates && (trimmed.startsWith("-") || trimmed.startsWith("+") || trimmed.startsWith("*"))) {
+                val cleanedText = trimmed.removePrefix("-")
+                    .removePrefix("+")
+                    .removePrefix("*")
+                    .trim()
+                if (cleanedText.isNotEmpty()) {
+                    updatesList.add(cleanedText)
+                }
+            }
+        }
+        return updatesList
+    }
+
     suspend fun check(context: Context, isManualCheck: Boolean = false) {
         val githubUser = "Sumitx5"
         val repoName = "Muzix_X"
@@ -64,6 +102,7 @@ object UpdateChecker {
 
         isUpdateChecking = true
         isUpdateAvailable = false
+        latestChangelogPoints = emptyList()
         updateStatusMessage = "Checking GitHub for updates..."
 
         if (isManualCheck) {
@@ -71,7 +110,7 @@ object UpdateChecker {
         }
 
         try {
-            val latestTag = withContext(Dispatchers.IO) {
+            val (latestTag, rawBody) = withContext(Dispatchers.IO) {
                 var connection: HttpURLConnection? = null
                 try {
                     val url = URL("https://api.github.com/repos/$githubUser/$repoName/releases/latest")
@@ -85,29 +124,32 @@ object UpdateChecker {
 
                     if (connection.responseCode == 200) {
                         val responseText = connection.inputStream.bufferedReader().use { it.readText() }
-                        val regex = "\"tag_name\"\\s*:\\s*\"([^\"]+)\"".toRegex()
-                        val matchResult = regex.find(responseText)
-                        matchResult?.groups?.get(1)?.value?.trim()
+                        val json = JSONObject(responseText)
+                        val tag = json.optString("tag_name", "").trim()
+                        val body = json.optString("body", "").trim()
+                        Pair(tag, body)
                     } else {
-                        null
+                        Pair(null, null)
                     }
                 } catch (_: Exception) {
-                    null
+                    Pair(null, null)
                 } finally {
                     connection?.disconnect()
                 }
             }
 
-            if (latestTag != null) {
+            if (!latestTag.isNullOrBlank()) {
+                latestTagName = latestTag
                 val latestVersionNumbers = extractVersionNumbers(latestTag)
 
                 if (isNewerVersion(localVersionNumbers, latestVersionNumbers)) {
                     isUpdateAvailable = true
-                    updateStatusMessage = "A fresh update is available for MuzixX!\n\nLatest on GitHub: $latestTag\nYour Version: v$localVersionNumbers\n\nWould you like to head to GitHub to download the new build?"
+                    latestChangelogPoints = extractUpdatesSection(rawBody ?: "")
+                    updateStatusMessage = "v$latestVersionNumbers is now available!"
                     showUpdateDialog = true
                 } else {
                     isUpdateAvailable = false
-                    updateStatusMessage = "MuzixX is already up to date!\n\nYou are Using the Latest Stable Build. \nLatest Version: $localVersionNumbers"
+                    updateStatusMessage = "MuzixX is up to date!\n\nYou are using the latest stable build (v$localVersionNumbers)."
                     if (isManualCheck) showUpdateDialog = true
                 }
             } else {
