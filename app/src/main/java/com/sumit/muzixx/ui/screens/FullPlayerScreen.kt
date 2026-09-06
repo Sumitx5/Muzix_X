@@ -9,6 +9,7 @@ import androidx.compose.animation.core.animateIntOffsetAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
@@ -179,7 +180,7 @@ fun FullPlayerScreen(
                         onDragStart = { isGestureActive = true },
                         onDragEnd = {
                             isGestureActive = false
-                            if (rawOffsetY > 450f) {
+                            if (rawOffsetY > 200f) {
                                 onDismiss()
                             }
                             rawOffsetY = 0f
@@ -190,7 +191,7 @@ fun FullPlayerScreen(
                         },
                         onVerticalDrag = { change, dragAmount ->
                             change.consume()
-                            rawOffsetY += if (rawOffsetY > 0) dragAmount * 0.85f else dragAmount
+                            rawOffsetY += if (rawOffsetY > 0) dragAmount * 0.9f else dragAmount
                         }
                     )
                 }
@@ -412,7 +413,11 @@ fun FullPlayerScreen(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.basicMarquee(
+                        iterations = Int.MAX_VALUE,
+                        velocity = 30.dp
+                    )
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
