@@ -46,6 +46,9 @@ An elegant, high-performance Android music streaming and local playback applicat
 
 👉 **[Download Latest Muzix_X APK](https://github.com/sumit282698/Muzix_X/releases/latest)**
 
+The Build Below May Contain Some Phone Breaking Bugs:
+👉 **[Download Latest Initial Build](https://github.com/sumit282698/Muzix_X/releases/latest)**
+
 ---
 
 ## 🤝 Credits & Acknowledgments
