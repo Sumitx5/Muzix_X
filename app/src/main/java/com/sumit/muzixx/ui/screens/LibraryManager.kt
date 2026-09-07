@@ -460,7 +460,7 @@ fun PlaylistRootListView(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(start = 16.dp, top = 8.dp, end = 16.dp, bottom = bottomPadding),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 items(playlists, key = { it.id }) { playlist ->
                     val isSystemPlaylist = playlist.id == "local_songs" || playlist.id.startsWith("folder_")
@@ -477,7 +477,7 @@ fun PlaylistRootListView(
                                     onClick = { onPlaylistSelect(playlist) },
                                     onLongClick = { onPlaylistLongClick(playlist) }
                                 )
-                                .padding(vertical = 16.dp, horizontal = 16.dp),
+                                .padding(vertical = 8.dp, horizontal = 16.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
@@ -723,7 +723,7 @@ fun SearchSongsFromPlaylistDialog(
         Box(
             modifier = Modifier
                 .fillMaxWidth(0.92f)
-                .fillMaxHeight(0.8f)
+                .fillMaxHeight(0.45f)
                 .glassEffect(RoundedCornerShape(24.dp))
                 .padding(16.dp)
         ) {
