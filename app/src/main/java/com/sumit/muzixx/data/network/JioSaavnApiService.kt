@@ -16,7 +16,7 @@ interface JioSaavnApiService {
     suspend fun searchSongs(
         @Query("query") query: String,
         @Query("page") page: Int = 1,
-        @Query("limit") limit: Int = 40
+        @Query("limit") limit: Int = 2
     ): SaavnPlaylistResponse
 
     //Auto Suggestions
