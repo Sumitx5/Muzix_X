@@ -107,14 +107,29 @@ class YouTubeAudioExtractor {
     private fun isNonMusicContent(title: String, channel: String): Boolean {
         val lowerTitle = title.lowercase()
         val lowerChannel = channel.lowercase()
-        val isMusicMix = lowerTitle.contains("mix") || lowerTitle.contains("lofi") ||
-                lowerTitle.contains("remix") || lowerTitle.contains("playlist") ||
-                lowerTitle.contains("bgm")
-        if (isMusicMix) return false
 
-        val nonMusicKeywords = listOf("podcast", "full episode", "gameplay", "walkthrough", "vlog", "tutorial", "news", "reaction")
-        val nonMusicChannels = listOf("gaming", "news", "podcast", "vlogs", "tech")
-        return nonMusicKeywords.any { lowerTitle.contains(it) } || nonMusicChannels.any { lowerChannel.contains(it) }
+        val isExplicitTrack = lowerTitle.contains("official music video") ||
+                lowerTitle.contains("official audio") ||
+                lowerTitle.contains("lyric video") ||
+                lowerChannel.contains("- topic") ||
+                lowerChannel.contains("vevo")
+
+        if (isExplicitTrack) return false
+
+        val nonMusicKeywords = listOf(
+            "podcast", "full episode", "gameplay", "walkthrough", "vlog",
+            "tutorial", "news", "reaction", "latent", "samay", "standup",
+            "comedy", "interview", "talk show", "roast", "review",
+            "unboxing", "compilation", "jukebox", "full album",
+            "ep.", "episode", "highlights", "stream highlights"
+        )
+
+        val nonMusicChannels = listOf(
+            "gaming", "news", "podcast", "vlogs", "tech", "comedy", "talks"
+        )
+
+        return nonMusicKeywords.any { lowerTitle.contains(it) } ||
+                nonMusicChannels.any { lowerChannel.contains(it) }
     }
 
     suspend fun getSongFromVideoId(
@@ -206,8 +221,10 @@ class YouTubeAudioExtractor {
             val relatedItems = info.relatedItems ?: return@withContext emptyList()
 
             return@withContext relatedItems
+                .asSequence()
                 .filter { it.url != null && it is org.schabi.newpipe.extractor.stream.StreamInfoItem }
                 .map { it as org.schabi.newpipe.extractor.stream.StreamInfoItem }
+                .filter { it.duration in 60..600 }
                 .filter { !isNonMusicContent(it.name ?: "", it.uploaderName ?: "") }
                 .map { item ->
                     val extractedId = item.url?.substringAfter("v=")?.substringBefore("&") ?: ""
@@ -226,6 +243,7 @@ class YouTubeAudioExtractor {
                         type = "yt"
                     )
                 }
+                .toList()
         } catch (_: Exception) {
             emptyList()
         }
