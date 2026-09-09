@@ -27,17 +27,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.ui.components.PlaylistSelectorContent
-import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.utils.glassEffect
+import com.sumit.muzixx.viewmodel.MusicViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,33 +46,63 @@ fun SearchScreen(
     modifier: Modifier = Modifier
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    var selectedTab by remember { mutableIntStateOf(0) }
     var isSearchFocused by remember { mutableStateOf(false) }
-
     var activeSongForPlaylist by remember { mutableStateOf<Song?>(null) }
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
 
-    val tabs = listOf("JioSaavn", "YouTube Music")
     val saavnResults = viewModel.searchManager.saavnSearchResults
     val youtubeResults = viewModel.searchManager.searchResults
 
-    val hasSaavnData by remember { derivedStateOf { saavnResults.isNotEmpty() } }
-    val hasYoutubeData by remember { derivedStateOf { youtubeResults.isNotEmpty() } }
+    val combinedResults by remember {
+        derivedStateOf {
+            (saavnResults + youtubeResults).distinctBy { it.id }
+        }
+    }
+
+    val isSearching by remember {
+        derivedStateOf {
+            viewModel.searchManager.isSaavnLoading || viewModel.searchManager.isSearchLoading
+        }
+    }
+
+    val hasData by remember { derivedStateOf { combinedResults.isNotEmpty() } }
 
     val isPlayerActive = viewModel.selectedSong != null
     val bottomPadding = if (isPlayerActive) 140.dp else 60.dp
 
-    val searchRecommendations by remember(searchQuery) {
+    fun executeCombinedSearch(query: String) {
+        val trimmed = query.trim()
+        if (trimmed.isNotBlank()) {
+            searchQuery = trimmed
+            viewModel.searchManager.searchJioSaavn(trimmed)
+            viewModel.searchManager.searchOnlineSongs(trimmed)
+            isSearchFocused = false
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        }
+    }
+
+    val recentHistory = remember(viewModel.searchManager.searchHistory) {
+        viewModel.searchManager.searchHistory.take(20)
+    }
+
+    val searchRecommendations by remember(searchQuery, recentHistory) {
         derivedStateOf {
-            if (searchQuery.isBlank()) emptyList()
-            else listOf(
-                searchQuery.trim(),
-                "${searchQuery.trim()} song",
-                "${searchQuery.trim()} remix",
-                "${searchQuery.trim()} lofi acoustic"
-            ).distinct()
+            val q = searchQuery.trim()
+            if (q.isBlank()) emptyList()
+            else {
+                val matchingHistory = recentHistory.filter { it.contains(q, ignoreCase = true) }
+                val generatedVariations = listOf(
+                    q,
+                    "$q song",
+                    "$q remix",
+                    "$q lofi acoustic",
+                    "$q slowed reverb"
+                )
+                (matchingHistory + generatedVariations).distinct()
+            }
         }
     }
 
@@ -101,8 +131,14 @@ fun SearchScreen(
                     .onFocusChanged { focusState ->
                         isSearchFocused = focusState.isFocused
                     },
-                placeholder = { Text("Search songs, artists...") },
-                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+                placeholder = { Text("Type to Search Song") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
                 trailingIcon = {
                     if (searchQuery.isNotEmpty()) {
                         IconButton(onClick = {
@@ -110,7 +146,11 @@ fun SearchScreen(
                             saavnResults.clear()
                             youtubeResults.clear()
                         }) {
-                            Icon(Icons.Default.Clear, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                            Icon(
+                                imageVector = Icons.Default.Clear,
+                                contentDescription = "Clear",
+                                tint = MaterialTheme.colorScheme.onSurface
+                            )
                         }
                     }
                 },
@@ -119,12 +159,7 @@ fun SearchScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(
                     onSearch = {
-                        if (searchQuery.isNotBlank()) {
-                            if (selectedTab == 0) viewModel.searchManager.searchJioSaavn(searchQuery.trim())
-                            else viewModel.searchManager.searchOnlineSongs(searchQuery.trim())
-                            keyboardController?.hide()
-                            focusManager.clearFocus()
-                        }
+                        executeCombinedSearch(searchQuery)
                     }
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -135,96 +170,48 @@ fun SearchScreen(
                 )
             )
 
-            TabRow(
-                selectedTabIndex = selectedTab,
-                modifier = Modifier.fillMaxWidth(),
-                containerColor = Color.Transparent,
-                contentColor = MaterialTheme.colorScheme.primary,
-                divider = {}
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = {
-                            selectedTab = index
-                            if (searchQuery.isNotBlank()) {
-                                if (index == 0) viewModel.searchManager.searchJioSaavn(searchQuery.trim())
-                                else viewModel.searchManager.searchOnlineSongs(searchQuery.trim())
-                            }
-                        },
-                        text = {
-                            Text(
-                                title,
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.SemiBold
-                            )
-                        }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                if (selectedTab == 0) {
-                    when {
-                        viewModel.searchManager.isSaavnLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                when {
+                    isSearching && !hasData -> {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
+                    }
 
-                        isSearchFocused || !hasSaavnData -> {
-                            InteractiveSearchContextPanel(
-                                query = searchQuery,
-                                history = viewModel.searchManager.searchHistory.take(5),
-                                recommendations = searchRecommendations,
-                                placeholderText = "Search your favorite tracks on JioSaavn",
-                                onSelection = { chosenQuery ->
-                                    searchQuery = chosenQuery
-                                    viewModel.searchManager.searchJioSaavn(chosenQuery)
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                },
-                                onDeleteHistory = { query -> viewModel.searchManager.deleteSearchQuery(query) }
-                            )
-                        }
-                        else -> SongResultsList(
-                            songs = saavnResults,
-                            bottomPadding = bottomPadding,
-                            onSongClick = { index -> viewModel.playSaavnSongWithYouTubeAutoplay(saavnResults, index) },
-                            onAddToPlaylistClick = { song -> activeSongForPlaylist = song },
-                            onAddToQueueClick = { song ->
-                                viewModel.addSongToQueue(song)
+                    isSearchFocused || !hasData -> {
+                        InteractiveSearchContextPanel(
+                            query = searchQuery,
+                            history = recentHistory,
+                            recommendations = searchRecommendations,
+                            placeholderText = "Search tracks across JioSaavn and YouTube",
+                            onSelection = { chosenQuery ->
+                                executeCombinedSearch(chosenQuery)
+                            },
+                            onDeleteHistory = { query ->
+                                viewModel.searchManager.deleteSearchQuery(query)
                             }
                         )
                     }
-                } else {
-                    when {
-                        viewModel.searchManager.isSearchLoading -> CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
 
-                        isSearchFocused || !hasYoutubeData -> {
-                            InteractiveSearchContextPanel(
-                                query = searchQuery,
-                                history = viewModel.searchManager.searchHistory.take(5),
-                                recommendations = searchRecommendations,
-                                placeholderText = "Search your favorite videos on YouTube",
-                                onSelection = { chosenQuery ->
-                                    searchQuery = chosenQuery
-                                    viewModel.searchManager.searchOnlineSongs(chosenQuery)
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
-                                },
-                                onDeleteHistory = { query -> viewModel.searchManager.deleteSearchQuery(query) }
-                            )
-                        }
-                        else -> SongResultsList(
-                            songs = youtubeResults,
+                    else -> {
+                        SongResultsList(
+                            songs = combinedResults,
                             bottomPadding = bottomPadding,
-                            onSongClick = { index -> viewModel.playYouTubeSearchResultWithAutoplay(youtubeResults, index) },
-                            onAddToPlaylistClick = { song -> activeSongForPlaylist = song },
-                            onAddToQueueClick = { song ->
-                                viewModel.addSongToQueue(song)
+                            onSongClick = { index ->
+                                val targetSong = combinedResults[index]
+                                if (targetSong.id.startsWith("yt_")) {
+                                    viewModel.playYouTubeSearchResultWithAutoplay(combinedResults, index)
+                                } else {
+                                    viewModel.playSaavnSongWithYouTubeAutoplay(combinedResults, index)
+                                }
                             },
+                            onAddToPlaylistClick = { song -> activeSongForPlaylist = song },
+                            onAddToQueueClick = { song -> viewModel.addSongToQueue(song) },
                             onItemVisible = { song ->
-                                val cleanYtId = song.id.replace("yt_", "").trim()
-                                viewModel.preloadYouTubeStream(cleanYtId)
+                                if (song.id.startsWith("yt_")) {
+                                    val cleanYtId = song.id.replace("yt_", "").trim()
+                                    viewModel.preloadYouTubeStream(cleanYtId)
+                                }
                             }
                         )
                     }
@@ -236,7 +223,7 @@ fun SearchScreen(
             ModalBottomSheet(
                 onDismissRequest = { activeSongForPlaylist = null },
                 containerColor = Color.Transparent,
-                dragHandle = {  }
+                dragHandle = { }
             ) {
                 PlaylistSelectorContent(
                     song = activeSongForPlaylist,
@@ -278,6 +265,7 @@ fun InteractiveSearchContextPanel(
         } else {
             SearchRecommendationsLayout(
                 recommendations = recommendations,
+                history = history,
                 onRecommendationClick = onSelection
             )
         }
@@ -287,6 +275,7 @@ fun InteractiveSearchContextPanel(
 @Composable
 fun SearchRecommendationsLayout(
     recommendations: List<String>,
+    history: List<String>,
     onRecommendationClick: (String) -> Unit
 ) {
     Column(
@@ -311,6 +300,8 @@ fun SearchRecommendationsLayout(
         ) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 items(recommendations) { suggestion ->
+                    val isFromHistory = history.any { it.equals(suggestion, ignoreCase = true) }
+
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -320,9 +311,10 @@ fun SearchRecommendationsLayout(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Rounded.TrendingUp,
+                            imageVector = if (isFromHistory) Icons.Rounded.History else Icons.AutoMirrored.Rounded.TrendingUp,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f),
+                            tint = if (isFromHistory) MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            else MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(16.dp))
@@ -330,7 +322,7 @@ fun SearchRecommendationsLayout(
                             text = suggestion,
                             style = MaterialTheme.typography.bodyLarge,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = if (isFromHistory) FontWeight.SemiBold else FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -440,7 +432,9 @@ fun SongResultsList(
                 AsyncImage(
                     model = song.artUri,
                     contentDescription = null,
-                    modifier = Modifier.size(56.dp).clip(RoundedCornerShape(12.dp)),
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(12.dp)),
                     contentScale = ContentScale.Crop
                 )
 
