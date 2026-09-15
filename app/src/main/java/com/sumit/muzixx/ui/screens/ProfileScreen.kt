@@ -2,25 +2,36 @@ package com.sumit.muzixx.ui.screens
 
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.rounded.Cable
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Update
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import com.sumit.muzixx.utils.glassEffect
@@ -30,11 +41,11 @@ import com.sumit.muzixx.utils.glassEffect
 fun ProfileScreen(
     viewModel: MusicViewModel,
     authViewModel: AuthViewModel,
-    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currentUser = authViewModel.currentUser
     var showAuthScreen by remember { mutableStateOf(false) }
+    var showStatsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentUser) {
         if (currentUser != null) {
@@ -49,6 +60,13 @@ fun ProfileScreen(
         }
     }
 
+    if (showStatsDialog) {
+        UserStatsDialog(
+            viewModel = viewModel,
+            onDismiss = { showStatsDialog = false }
+        )
+    }
+
     if (showAuthScreen) {
         AuthScreen(
             authViewModel = authViewModel,
@@ -60,31 +78,25 @@ fun ProfileScreen(
         val currentUserName = viewModel.settings.userName
         val accentColor = MaterialTheme.colorScheme.primary
 
-        var selectedTabState by remember { mutableIntStateOf(0) }
-        val tabTitles = remember { listOf("This Month", "This Year", "All-Time") }
-
-        val totalPlaylistsCount = viewModel.playlists.size
-        val totalSongsCount = viewModel.songs.size
-
         Scaffold(
             modifier = modifier.fillMaxSize(),
             containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
-                    title = { Text(text = "Profile", fontWeight = FontWeight.Bold, fontSize = 20.sp) },
-                    navigationIcon = {
-                        IconButton(onClick = onBackClick) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+                    title = {
+                        Text(
+                            text = "Profile & Settings",
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(start = 4.dp)
+                        )
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.background,
+                        containerColor = Color.Transparent,
                         titleContentColor = MaterialTheme.colorScheme.onSurface
-                    )
+                    ),
+                    windowInsets = WindowInsets.statusBars
                 )
             }
         ) { innerPadding ->
@@ -93,65 +105,210 @@ fun ProfileScreen(
                     .fillMaxSize()
                     .padding(innerPadding)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .glassEffect(RoundedCornerShape(24.dp))
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Start
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(CircleShape)
+                                    .background(accentColor.copy(alpha = 0.2f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Profile Pic",
+                                    tint = accentColor,
+                                    modifier = Modifier.size(28.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = if (currentUser != null) currentUser.displayName ?: currentUserName else currentUserName,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                val isSynced = if (currentUser != null) "Synced Account" else "Not Synced"
+                                Text(
+                                    text = "MuzixX Listener | $isSynced",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        Button(
+                            onClick = { showAuthScreen = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Manage Account",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                val playtimeMonthly = viewModel.stats.monthlyPlaySecondsState.longValue
+                val listenHours = playtimeMonthly / 3600
+                val listenMinutes = (playtimeMonthly % 3600) / 60
+
+                ProfileStatCard(
+                    title = "Monthly Stats",
+                    note = true,
+                    stats = arrayOf(
+                        "Songs Heard" to "${viewModel.stats.monthlySongsHeardState.intValue}",
+                        "Total Time" to "${listenHours}h ${listenMinutes}m"
+                    ),
+                    onClick = { showStatsDialog = true }
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                    thickness = 1.dp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ItemCardSettings(
+                        icon = Icons.Rounded.Cable,
+                        title = "Integrations",
+                        subtitle = "Get Cloud Playlists From Various apps",
+                        onClick = {}
+                    )
+
+                    ItemCardSettings(
+                        icon = Icons.Rounded.Groups,
+                        title = "Listen Together",
+                        subtitle = "Stream synced audio with friends",
+                        onClick = {},
+                        badgeText = "Coming Soon"
+                    )
+
+                    ItemCardSettings(
+                        icon = Icons.Rounded.Security,
+                        title = "Permissions",
+                        subtitle = "Manage Permission access",
+                        onClick = {}
+                    )
+
+                    ItemCardSettings(
+                        icon = Icons.Rounded.Update,
+                        title = "Check for Updates",
+                        subtitle = "Checks the Latest GitHub releases",
+                        onClick = {}
+                    )
+
+                    ItemCardSettings(
+                        icon = Icons.Rounded.Settings,
+                        title = "Settings",
+                        subtitle = "Playback, theme & audio quality",
+                        onClick = {}
+                    )
+
+                    Spacer(modifier = Modifier.height(80.dp))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UserStatsDialog(
+    viewModel: MusicViewModel,
+    onDismiss: () -> Unit
+) {
+    var selectedTabState by remember { mutableIntStateOf(0) }
+    val tabTitles = remember { listOf("Monthly", "Yearly", "All-Time") }
+    val accentColor = MaterialTheme.colorScheme.primary
+
+    val totalPlaylistsCount = viewModel.playlists.size
+    val totalSongsCount = viewModel.songs.size
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .wrapContentHeight()
+                .glassEffect(shape = RoundedCornerShape(28.dp))
+                .padding(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Start
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .clip(CircleShape)
-                            .background(accentColor.copy(alpha = 0.2f)),
-                        contentAlignment = Alignment.Center
+                    Text(
+                        text = "Listening Statistics",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile Pic",
-                            tint = accentColor,
-                            modifier = Modifier.size(40.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(20.dp))
-
-                    Column {
-                        Text(
-                            text = if (currentUser != null) currentUser.displayName ?: currentUserName else currentUserName,
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = if (currentUser != null) "@Cloud Synced Account" else "MuzixX Listener",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontWeight = FontWeight.Medium
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Close",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Button(
-                    onClick = { showAuthScreen = true },
-                    colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.fillMaxWidth().height(50.dp)
-                ) {
-                    Icon(imageVector = Icons.Default.AccountCircle, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Manage Account", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-                HorizontalDivider(color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f), thickness = 1.dp)
                 Spacer(modifier = Modifier.height(16.dp))
 
                 SecondaryTabRow(
@@ -167,36 +324,36 @@ fun ProfileScreen(
                             Tab(
                                 selected = isSelected,
                                 onClick = { selectedTabState = index },
-                                selectedContentColor = accentColor,
-                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                selectedContentColor = MaterialTheme.colorScheme.onPrimary,
+                                unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                                 text = {
-                                    Text(
-                                        text = title,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(
+                                                if (isSelected) accentColor.copy(0.2f) else Color.Transparent
+                                            )
+                                            .padding(horizontal = 6.dp, vertical = 8.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = title,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = if (isSelected) {
+                                                MaterialTheme.colorScheme.primary
+                                            } else {
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                            }
+                                        )
+                                    }
                                 }
                             )
                         }
-                    })
+                    }
+                )
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                    ProfileStatCard(
-                        title = "Playlists",
-                        value = totalPlaylistsCount.toString(),
-                        modifier = Modifier.weight(1f)
-                    )
-                    ProfileStatCard(
-                        title = "Songs",
-                        value = totalSongsCount.toString(),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
+                Spacer(modifier = Modifier.height(8.dp))
                 AnimatedContent(
                     targetState = selectedTabState,
                     transitionSpec = {
@@ -220,27 +377,52 @@ fun ProfileScreen(
                     val listenMinutes = (activeSeconds % 3600) / 60
                     val listenSeconds = activeSeconds % 60
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         ProfileStatCard(
                             title = "Songs Heard",
-                            value = activeSongsHeard.toString(),
+                            stats = arrayOf("" to "$activeSongsHeard"),
+                            onClick = {},
                             modifier = Modifier.weight(1f)
                         )
                         ProfileStatCard(
                             title = "Listen Time",
-                            value = "${listenHours}h ${listenMinutes}m ${listenSeconds}s",
+                            stats = arrayOf("" to "${listenHours}h ${listenMinutes}m ${listenSeconds}s"),
+                            onClick = {},
                             modifier = Modifier.weight(1f)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    ProfileStatCard(
+                        title = "Playlists",
+                        stats = arrayOf("Saved" to "$totalPlaylistsCount"),
+                        onClick = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                    ProfileStatCard(
+                        title = "Library",
+                        stats = arrayOf("Tracks" to "$totalSongsCount"),
+                        onClick = {},
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .glassEffect(shape = RoundedCornerShape(26.dp))
-                        .padding(20.dp)
+                        .glassEffect(shape = RoundedCornerShape(20.dp))
+                        .padding(16.dp)
                 ) {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
@@ -252,18 +434,17 @@ fun ProfileScreen(
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
                         Text(
-                            text = "Keep listening to build your listening stats and personalized music experience.\n\nNote: Restart app to see live updates if you recently connected your account.",
+                            text = "Keep listening to build your listening stats and personalized music experience.",
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
-                            lineHeight = 18.sp
+                            lineHeight = 17.sp
                         )
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
@@ -272,34 +453,154 @@ fun ProfileScreen(
 @Composable
 fun ProfileStatCard(
     title: String,
-    value: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    note: Boolean = false,
+    onClick: () -> Unit,
+    vararg stats: Pair<String, String>
 ) {
     Box(
         modifier = modifier
             .fillMaxWidth()
             .glassEffect(shape = RoundedCornerShape(24.dp))
-            .padding(horizontal = 12.dp, vertical = 20.dp),
+            .clip(RoundedCornerShape(24.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 18.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 text = title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Text(
-                text = value,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
+            )
+
+            if (stats.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.Start,
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    stats.forEach { (name, value) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "$name: ",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = value,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            if (note) {
+                Text(
+                    text = "Click to Open Stats",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ItemCardSettings(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    badgeText: String? = null
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .glassEffect(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .glassEffect(CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+
+                    if (badgeText != null) {
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)
+                        ) {
+                            Text(
+                                text = badgeText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(2.dp))
+
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(22.dp)
             )
         }
     }
