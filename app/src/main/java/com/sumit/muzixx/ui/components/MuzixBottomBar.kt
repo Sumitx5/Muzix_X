@@ -1,5 +1,10 @@
 package com.sumit.muzixx.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SupervisedUserCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -23,52 +29,68 @@ import com.sumit.muzixx.utils.glassEffect
 fun MuzixBottomBar(
     currentScreen: String,
     onTabSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    visible: Boolean = true
 ) {
     val barShape = RoundedCornerShape(20.dp)
 
-    Box(
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
         modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 14.dp)
-            .padding(bottom = 8.dp),
-        contentAlignment = Alignment.Center
     ) {
         Box(
             modifier = Modifier
-                .matchParentSize()
-                .glassEffect(shape = barShape)
-        )
-
-        Row(
-            modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 14.dp)
+                .padding(bottom = 4.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                MuzixCapsuleItem(
-                    icon = Icons.Rounded.Home,
-                    isSelected = currentScreen == "Home",
-                    onClick = { onTabSelected("Home") }
-                )
-            }
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .glassEffect(shape = barShape)
+            )
 
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                MuzixCapsuleItem(
-                    icon = Icons.Rounded.Search,
-                    isSelected = currentScreen == "Search",
-                    onClick = { onTabSelected("Search") }
-                )
-            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        icon = Icons.Rounded.Home,
+                        isSelected = currentScreen == "Home",
+                        onClick = { onTabSelected("Home") }
+                    )
+                }
 
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                MuzixCapsuleItem(
-                    icon = Icons.Rounded.LibraryMusic,
-                    isSelected = currentScreen == "Library",
-                    onClick = { onTabSelected("Library") }
-                )
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        icon = Icons.Rounded.Search,
+                        isSelected = currentScreen == "Search",
+                        onClick = { onTabSelected("Search") }
+                    )
+                }
+
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        icon = Icons.Rounded.LibraryMusic,
+                        isSelected = currentScreen == "Library",
+                        onClick = { onTabSelected("Library") }
+                    )
+                }
+
+                Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                    MuzixCapsuleItem(
+                        icon = Icons.Rounded.SupervisedUserCircle,
+                        isSelected = currentScreen == "Profile",
+                        onClick = { onTabSelected("Profile") }
+                    )
+                }
             }
         }
     }
@@ -109,10 +131,9 @@ private fun MuzixCapsuleItem(
                 imageVector = icon,
                 contentDescription = "Items",
                 tint = contentColor,
-                modifier = Modifier.size(24.dp)
+                modifier = Modifier.size(28.dp)
             )
             Spacer(modifier = Modifier.width(6.dp))
-
         }
     }
 }
