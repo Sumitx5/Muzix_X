@@ -41,6 +41,10 @@ import com.sumit.muzixx.utils.glassEffect
 fun ProfileScreen(
     viewModel: MusicViewModel,
     authViewModel: AuthViewModel,
+    onSettingsClick: () -> Unit,
+    onIntegrationClick: () -> Unit,
+    onListenTogetherClick: () -> Unit,
+    onPermClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currentUser = authViewModel.currentUser
@@ -217,14 +221,14 @@ fun ProfileScreen(
                         icon = Icons.Rounded.Cable,
                         title = "Integrations",
                         subtitle = "Get Cloud Playlists From Various apps",
-                        onClick = {}
+                        onClick = { onIntegrationClick() }
                     )
 
                     ItemCardSettings(
                         icon = Icons.Rounded.Groups,
                         title = "Listen Together",
                         subtitle = "Stream synced audio with friends",
-                        onClick = {},
+                        onClick = { onListenTogetherClick() },
                         badgeText = "Coming Soon"
                     )
 
@@ -232,21 +236,21 @@ fun ProfileScreen(
                         icon = Icons.Rounded.Security,
                         title = "Permissions",
                         subtitle = "Manage Permission access",
-                        onClick = {}
+                        onClick = { onPermClick() }
                     )
 
                     ItemCardSettings(
                         icon = Icons.Rounded.Update,
                         title = "Check for Updates",
                         subtitle = "Checks the Latest GitHub releases",
-                        onClick = {}
+                        onClick = { viewModel.triggerUpdateCheck() }
                     )
 
                     ItemCardSettings(
                         icon = Icons.Rounded.Settings,
                         title = "Settings",
                         subtitle = "Playback, theme & audio quality",
-                        onClick = {}
+                        onClick = { onSettingsClick() }
                     )
 
                     Spacer(modifier = Modifier.height(80.dp))
