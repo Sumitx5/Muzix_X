@@ -387,13 +387,13 @@ fun UserStatsDialog(
                     ) {
                         ProfileStatCard(
                             title = "Songs Heard",
-                            stats = arrayOf("" to "$activeSongsHeard"),
+                            stats = arrayOf("Songs" to "$activeSongsHeard"),
                             onClick = {},
                             modifier = Modifier.weight(1f)
                         )
                         ProfileStatCard(
                             title = "Listen Time",
-                            stats = arrayOf("" to "${listenHours}h ${listenMinutes}m ${listenSeconds}s"),
+                            stats = arrayOf("Time" to "${listenHours}h ${listenMinutes}m ${listenSeconds}s"),
                             onClick = {},
                             modifier = Modifier.weight(1f)
                         )
@@ -506,7 +506,7 @@ fun ProfileStatCard(
                                 style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
-                                maxLines = 1,
+                                maxLines = 2,
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
