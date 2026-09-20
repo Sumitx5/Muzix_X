@@ -13,6 +13,7 @@ import com.sumit.muzixx.data.model.Playlist
 import com.sumit.muzixx.data.model.Song
 import com.sumit.muzixx.data.network.JioSaavnApiService
 import com.sumit.muzixx.data.network.SpotifyImporter
+import com.sumit.muzixx.data.network.YouTubePlaylistImporter
 import com.sumit.muzixx.data.network.UpdateChecker
 import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import com.sumit.muzixx.data.network.YouTubeMusicScraper
@@ -36,6 +37,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val autoplayManager by lazy { AutoplayManager(ytScraper, ytExtractor, jioSaavnApiService) }
     private var persistenceManager: PlaybackPersistenceManager? = null
     private val spotifyImporter = SpotifyImporter()
+    private val ytImporter = YouTubePlaylistImporter()
 
     val cacheManager by lazy { CacheManager(context, viewModelScope) }
     val searchManager by lazy {
@@ -55,6 +57,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             ytExtractor = ytExtractor,
             autoplayManager = autoplayManager,
             spotifyImporter = spotifyImporter,
+            youtubeImporter = ytImporter,
             createPlaylistCallback = { name, songs -> createPlaylist(name, songs) }
         )
     }

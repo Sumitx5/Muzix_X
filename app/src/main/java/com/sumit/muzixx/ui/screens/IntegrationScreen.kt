@@ -20,6 +20,28 @@ import androidx.compose.ui.unit.dp
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import com.sumit.muzixx.utils.glassEffect
 
+private enum class ImportSource(
+    val title: String,
+    val description: String,
+    val placeholder: String
+) {
+    SPOTIFY(
+        title = "Import Spotify Playlist",
+        description = "Sync tracks from public Spotify playlist links.",
+        placeholder = "https://open.spotify.com/playlist/..."
+    ),
+    YOUTUBE_MUSIC(
+        title = "Import YouTube Music Playlist",
+        description = "Import your curated YouTube Music collections directly.",
+        placeholder = "https://music.youtube.com/playlist?list=..."
+    ),
+    YOUTUBE(
+        title = "Import YouTube Playlist",
+        description = "Extract videos from YouTube playlists into streamable tracks.",
+        placeholder = "https://www.youtube.com/playlist?list=..."
+    )
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IntegrationScreen(
@@ -28,8 +50,8 @@ fun IntegrationScreen(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var showSpotifyDialog by remember { mutableStateOf(false) }
-    var spotifyUrl by remember { mutableStateOf("") }
+    var activeImportSource by remember { mutableStateOf<ImportSource?>(null) }
+    var inputUrl by remember { mutableStateOf("") }
     var isImporting by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -74,7 +96,7 @@ fun IntegrationScreen(
             ) {
                 item {
                     Text(
-                        text = "Import your external playlists directly into MuzixX seamlessly.",
+                        text = "Import your external playlists directly into MuzixX seamlessly. up to (400 Song's)",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp)
@@ -84,19 +106,23 @@ fun IntegrationScreen(
                 item {
                     IntegrationCard(
                         title = "Import Spotify Playlist",
-                        description = "Sync your favorite tracks from public Spotify links.",
+                        description = "Sync tracks from public Spotify playlist links.",
                         brandColor = Color(0xFF1DB954),
-                        onClick = { showSpotifyDialog = true }
+                        onClick = {
+                            activeImportSource = ImportSource.SPOTIFY
+                            inputUrl = ""
+                        }
                     )
                 }
 
                 item {
                     IntegrationCard(
                         title = "Import YouTube Music Playlist",
-                        description = "Bring over your specialized streaming queues.",
+                        description = "Bring over your curated YouTube Music queues.",
                         brandColor = Color(0xFFFF0000),
                         onClick = {
-                            Toast.makeText(context, "Coming Soon", Toast.LENGTH_SHORT).show()
+                            activeImportSource = ImportSource.YOUTUBE_MUSIC
+                            inputUrl = ""
                         }
                     )
                 }
@@ -104,37 +130,44 @@ fun IntegrationScreen(
                 item {
                     IntegrationCard(
                         title = "Import YouTube Playlist",
-                        description = "Convert video collections directly to standard audio formats.",
+                        description = "Convert public video playlists directly into streamable queues.",
                         brandColor = Color(0xFFE62117),
                         onClick = {
-                            Toast.makeText(context, "Coming Soon", Toast.LENGTH_SHORT).show()
+                            activeImportSource = ImportSource.YOUTUBE
+                            inputUrl = ""
                         }
                     )
                 }
             }
 
-            // Spotify Link Input Dialog
-            if (showSpotifyDialog) {
+            // Universal Playlist Import Dialog
+            activeImportSource?.let { source ->
                 AlertDialog(
-                    onDismissRequest = { if (!isImporting) showSpotifyDialog = false },
-                    title = { Text("Import Spotify Playlist") },
+                    onDismissRequest = {
+                        if (!isImporting) {
+                            activeImportSource = null
+                            inputUrl = ""
+                        }
+                    },
+                    title = { Text(source.title, fontWeight = FontWeight.Bold) },
                     containerColor = Color.Transparent,
                     modifier = Modifier.glassEffect(RoundedCornerShape(16.dp)),
                     text = {
                         Column {
                             Text(
-                                "Paste a public Spotify playlist URL below:",
+                                source.description,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             OutlinedTextField(
-                                value = spotifyUrl,
-                                onValueChange = { spotifyUrl = it },
-                                placeholder = { Text("https://open.spotify.com/playlist/...") },
+                                value = inputUrl,
+                                onValueChange = { inputUrl = it },
+                                placeholder = { Text(source.placeholder) },
                                 singleLine = true,
                                 enabled = !isImporting,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp)
                             )
                             if (isImporting) {
                                 Spacer(modifier = Modifier.height(16.dp))
@@ -143,29 +176,62 @@ fun IntegrationScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
                                     CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                                    Text("Resolving and importing tracks...", style = MaterialTheme.typography.bodyMedium)
+                                    Text(
+                                        "Extracting playlist and tracks...",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
                                 }
                             }
                         }
                     },
                     confirmButton = {
                         Button(
-                            enabled = !isImporting && spotifyUrl.isNotBlank(),
+                            enabled = !isImporting && inputUrl.isNotBlank(),
                             onClick = {
+                                val cleanUrl = inputUrl.trim()
                                 isImporting = true
-                                viewModel.contentManager.importSpotifyPlaylist(
-                                    url = spotifyUrl,
-                                    onSuccess = { name, count ->
-                                        isImporting = false
-                                        showSpotifyDialog = false
-                                        spotifyUrl = ""
-                                        Toast.makeText(context, "Successfully imported '$name' with $count tracks!", Toast.LENGTH_LONG).show()
-                                    },
-                                    onError = { errorMsg ->
-                                        isImporting = false
-                                        Toast.makeText(context, errorMsg, Toast.LENGTH_SHORT).show()
+
+                                when (source) {
+                                    ImportSource.SPOTIFY -> {
+                                        viewModel.contentManager.importSpotifyPlaylist(
+                                            url = cleanUrl,
+                                            onSuccess = { name, count ->
+                                                isImporting = false
+                                                activeImportSource = null
+                                                inputUrl = ""
+                                                Toast.makeText(
+                                                    context,
+                                                    "Imported '$name' ($count tracks)!",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            },
+                                            onError = { errorMsg ->
+                                                isImporting = false
+                                                Toast.makeText(context, errorMsg, Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
                                     }
-                                )
+
+                                    ImportSource.YOUTUBE, ImportSource.YOUTUBE_MUSIC -> {
+                                        viewModel.contentManager.importYouTubePlaylist(
+                                            url = cleanUrl,
+                                            onSuccess = { name, count ->
+                                                isImporting = false
+                                                activeImportSource = null
+                                                inputUrl = ""
+                                                Toast.makeText(
+                                                    context,
+                                                    "Imported '$name' ($count tracks)!",
+                                                    Toast.LENGTH_LONG
+                                                ).show()
+                                            },
+                                            onError = { errorMsg ->
+                                                isImporting = false
+                                                Toast.makeText(context, errorMsg, Toast.LENGTH_SHORT).show()
+                                            }
+                                        )
+                                    }
+                                }
                             }
                         ) {
                             Text("Import")
@@ -173,7 +239,10 @@ fun IntegrationScreen(
                     },
                     dismissButton = {
                         if (!isImporting) {
-                            TextButton(onClick = { showSpotifyDialog = false }) {
+                            TextButton(onClick = {
+                                activeImportSource = null
+                                inputUrl = ""
+                            }) {
                                 Text("Cancel")
                             }
                         }

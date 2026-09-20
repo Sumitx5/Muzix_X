@@ -228,7 +228,7 @@ fun ProfileScreen(
                         icon = Icons.Rounded.Groups,
                         title = "Listen Together",
                         subtitle = "Stream synced audio with friends",
-                        onClick = { onListenTogetherClick() },
+                        onClick = {  },
                         badgeText = "Coming Soon"
                     )
 

@@ -13,6 +13,7 @@ import com.sumit.muzixx.data.network.JioSaavnApiService
 import com.sumit.muzixx.data.network.SpotifyImporter
 import com.sumit.muzixx.data.network.YouTubeAudioExtractor
 import com.sumit.muzixx.data.network.YouTubeMusicScraper
+import com.sumit.muzixx.data.network.YouTubePlaylistImporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -27,6 +28,7 @@ class ContentManager(
     private val ytExtractor: YouTubeAudioExtractor,
     private val autoplayManager: AutoplayManager,
     private val spotifyImporter: SpotifyImporter,
+    private val youtubeImporter: YouTubePlaylistImporter,
     private val createPlaylistCallback: (String, List<Song>) -> Playlist?
 ) {
     val saavnTrendingSongs = mutableStateListOf<Song>()
@@ -222,6 +224,35 @@ class ContentManager(
                 } else {
                     onError("Could not resolve playable audio streams for tracks in this playlist.")
                 }
+            } catch (e: Exception) {
+                onError("Import failed: ${e.localizedMessage ?: "Unknown error"}")
+            }
+        }
+    }
+
+    fun importYouTubePlaylist(
+        url: String,
+        onSuccess: (playlistName: String, count: Int) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        if (url.isBlank()) {
+            onError("Please enter a valid YouTube or YouTube Music playlist URL")
+            return
+        }
+
+        scope.launch {
+            try {
+                val result = youtubeImporter.fetchPlaylistTracks(url)
+                val songs = result.songs
+
+                if (songs.isEmpty()) {
+                    onError("Failed to parse YouTube playlist. Ensure the playlist is public and contains videos.")
+                    return@launch
+                }
+
+                val playlistName = result.playlistName
+                createPlaylistCallback(playlistName, songs)
+                onSuccess(playlistName, songs.size)
             } catch (e: Exception) {
                 onError("Import failed: ${e.localizedMessage ?: "Unknown error"}")
             }
