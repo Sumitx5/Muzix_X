@@ -15,11 +15,14 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Equalizer
 import androidx.compose.material.icons.rounded.Favorite
@@ -49,6 +52,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.palette.graphics.Palette
 import coil.ImageLoader
 import coil.compose.AsyncImage
@@ -57,7 +62,11 @@ import coil.request.SuccessResult
 import com.sumit.muzixx.R
 import com.sumit.muzixx.data.model.RepeatMode
 import com.sumit.muzixx.data.network.AudioDownloader
+import com.sumit.muzixx.data.network.LyricsService
+import com.sumit.muzixx.data.network.SongLyrics
 import com.sumit.muzixx.ui.components.EqualizerPage
+import com.sumit.muzixx.ui.components.LyricsDisplayMode
+import com.sumit.muzixx.ui.components.LyricsView
 import com.sumit.muzixx.ui.components.PlaylistSelectorContent
 import com.sumit.muzixx.utils.formatTime
 import com.sumit.muzixx.utils.glassEffect
@@ -78,9 +87,10 @@ fun FullPlayerScreen(
     val repeatMode = viewModel.currentRepeatMode
     val accentColor = MaterialTheme.colorScheme.primary
     val defaultAccent = MaterialTheme.colorScheme.surfaceContainerHighest
-    var dynamicAccentColor by remember { mutableStateOf(defaultAccent) }
+    var dynamicAccentColor by remember { mutableStateOf(accentColor) }
 
     val isLiked = viewModel.isSongLiked(song?.id)
+//    val isFloatingLyric = viewModel.settings.showLyrics
 
     val animatedAccentColor by animateColorAsState(
         targetValue = dynamicAccentColor,
@@ -88,7 +98,6 @@ fun FullPlayerScreen(
         label = "DynamicThemeAccent"
     )
 
-    // Animated Scale Trigger (Play/Pause)
     val playPauseScale by animateFloatAsState(
         targetValue = if (viewModel.isPlaying) 1.0f else 0.94f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow),
@@ -105,6 +114,24 @@ fun FullPlayerScreen(
                         !playlist.id.startsWith("folder_") &&
                         playlist.name != "Local Songs"
             }
+        }
+    }
+
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { 2 })
+    var showFullScreenLyrics by remember { mutableStateOf(false) }
+
+    var songLyrics by remember { mutableStateOf<SongLyrics?>(null) }
+    var isLyricsLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(song?.id) {
+        if (song != null) {
+            isLyricsLoading = true
+            songLyrics = LyricsService.fetchLyrics(
+                trackName = song.title,
+                artistName = song.artist,
+                durationSeconds = if (song.duration > 0) song.duration / 1000L else null
+            )
+            isLyricsLoading = false
         }
     }
 
@@ -169,13 +196,12 @@ fun FullPlayerScreen(
         label = "PlayerSpringDismiss"
     )
 
-    // Main Content Adjustments
     Box(
         modifier = Modifier
             .fillMaxSize()
             .offset { animatedOffset }
-            .pointerInput(showQueueSheet) {
-                if (!showQueueSheet) {
+            .pointerInput(showQueueSheet, showFullScreenLyrics) {
+                if (!showQueueSheet && !showFullScreenLyrics) {
                     detectVerticalDragGestures(
                         onDragStart = { isGestureActive = true },
                         onDragEnd = {
@@ -226,175 +252,175 @@ fun FullPlayerScreen(
                     .glassEffect(RoundedCornerShape(16.dp))
             )
 
-            // Song Thumbnail(Art)
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
-                Box(
+                HorizontalPager(
+                    state = pagerState,
                     modifier = Modifier
                         .fillMaxWidth(0.88f)
                         .aspectRatio(1f)
-                        .scale(playPauseScale)
-                ) {
-                    AsyncImage(
-                        model = song?.artUri,
-                        contentDescription = "Album Art",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .shadow(
-                                elevation = 24.dp,
-                                shape = RoundedCornerShape(24.dp),
-                                clip = false,
-                                ambientColor = animatedAccentColor.copy(alpha = 0.3f),
-                                spotColor = animatedAccentColor.copy(alpha = 0.5f)
-                            )
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                        error = painterResource(id = R.drawable.default_music),
-                        placeholder = painterResource(id = R.drawable.default_music),
-                        contentScale = ContentScale.Crop
-                    )
-
-                    // Info About Song
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .wrapContentSize()
-                    ) {
-                        IconButton(
-                            onClick = { showOptionsMenu = true },
+                ) { page ->
+                    if (page == 0) {
+                        Box(
                             modifier = Modifier
-                                .glassEffect(CircleShape)
-                                .size(40.dp)
+                                .fillMaxSize()
+                                .scale(playPauseScale)
                         ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Info,
-                                contentDescription = "Song Information Options Menu",
-                                tint = MaterialTheme.colorScheme.onSurface
+                            AsyncImage(
+                                model = song?.artUri,
+                                contentDescription = "Album Art",
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .shadow(
+                                        elevation = 24.dp,
+                                        shape = RoundedCornerShape(24.dp),
+                                        clip = false,
+                                        ambientColor = animatedAccentColor.copy(alpha = 0.3f),
+                                        spotColor = animatedAccentColor.copy(alpha = 0.5f)
+                                    )
+                                    .clip(RoundedCornerShape(24.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                                error = painterResource(id = R.drawable.default_music),
+                                placeholder = painterResource(id = R.drawable.default_music),
+                                contentScale = ContentScale.Crop
                             )
-                        }
 
-                        DropdownMenu(
-                            expanded = showOptionsMenu,
-                            onDismissRequest = { showOptionsMenu = false },
-                            containerColor = Color.Transparent,
-                            shape = RoundedCornerShape(16.dp),
-                            modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("About Song", fontWeight = FontWeight.Medium) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    navigateToAboutSong = true
-                                },
-                                leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(8.dp)
+                                    .wrapContentSize()
+                            ) {
+                                IconButton(
+                                    onClick = { showOptionsMenu = true },
+                                    modifier = Modifier
+                                        .glassEffect(CircleShape)
+                                        .size(40.dp)
+                                ) {
                                     Icon(
-                                        Icons.Rounded.Info,
-                                        contentDescription = null
+                                        imageVector = Icons.Rounded.Info,
+                                        contentDescription = "Song Information Options Menu",
+                                        tint = MaterialTheme.colorScheme.onSurface
                                     )
                                 }
-                            )
 
-                            DropdownMenuItem(
-                                text = { Text("Lyrics", fontWeight = FontWeight.Medium) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    Toast.makeText(
-                                        context,
-                                        "Lyrics are Unavailable",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Rounded.Lyrics,
-                                        contentDescription = null
-                                    )
-                                }
-                            )
-
-                            DropdownMenuItem(
-                                text = { Text("Equalizer", fontWeight = FontWeight.Medium) },
-                                onClick = {
-                                    showOptionsMenu = false
-                                    showEqualizer = true
-                                },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Rounded.Equalizer,
-                                        contentDescription = null
-                                    )
-                                }
-                            )
-
-                            if (currentSong?.type == "yt" || currentSong?.type == "saavn") {
-                                DropdownMenuItem(
-                                    text = { Text("Download", fontWeight = FontWeight.Medium) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        if (song != null && viewModel.isSettingsInitialized()) {
-                                            coroutineScope.launch {
-                                                AudioDownloader.downloadTrack(
-                                                    context,
-                                                    song,
-                                                    viewModel.settings
-                                                )
-                                            }
+                                DropdownMenu(
+                                    expanded = showOptionsMenu,
+                                    onDismissRequest = { showOptionsMenu = false },
+                                    containerColor = Color.Transparent,
+                                    shape = RoundedCornerShape(16.dp),
+                                    modifier = Modifier.glassEffect(RoundedCornerShape(16.dp))
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text("About Song", fontWeight = FontWeight.Medium) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            navigateToAboutSong = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Rounded.Info, contentDescription = null)
                                         }
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Rounded.Download,
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
+                                    )
 
-                                DropdownMenuItem(
-                                    text = { Text("Share", fontWeight = FontWeight.Medium) },
-                                    onClick = {
-                                        showOptionsMenu = false
-                                        currentSong.let { song ->
-                                            val shortArt =
-                                                if (song.type == "yt") "" else song.artUri?.substringAfter(
-                                                    "c.saavncdn.com/",
-                                                    song.artUri
-                                                ) ?: ""
-                                            val compactData =
-                                                """{"i":"${song.id}","t":"${song.title}","a":"${song.artist}","r":"$shortArt"}"""
-                                            val encodedPayload = android.util.Base64.encodeToString(
-                                                compactData.toByteArray(Charsets.UTF_8),
-                                                android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
-                                            )
-                                            val shareUrl =
-                                                "https://muzixx1.github.io/MuzixX/share?p=$encodedPayload"
-                                            val shareIntent =
-                                                android.content.Intent(android.content.Intent.ACTION_SEND)
-                                                    .apply {
+                                    DropdownMenuItem(
+                                        text = { Text("Lyrics", fontWeight = FontWeight.Medium) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showFullScreenLyrics = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Rounded.Lyrics, contentDescription = null)
+                                        }
+                                    )
+
+                                    DropdownMenuItem(
+                                        text = { Text("Equalizer", fontWeight = FontWeight.Medium) },
+                                        onClick = {
+                                            showOptionsMenu = false
+                                            showEqualizer = true
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Rounded.Equalizer, contentDescription = null)
+                                        }
+                                    )
+
+                                    if (currentSong?.type == "yt" || currentSong?.type == "saavn") {
+                                        DropdownMenuItem(
+                                            text = { Text("Download", fontWeight = FontWeight.Medium) },
+                                            onClick = {
+                                                showOptionsMenu = false
+                                                if (song != null && viewModel.isSettingsInitialized()) {
+                                                    coroutineScope.launch {
+                                                        AudioDownloader.downloadTrack(
+                                                            context,
+                                                            song,
+                                                            viewModel.settings
+                                                        )
+                                                    }
+                                                }
+                                            },
+                                            leadingIcon = {
+                                                Icon(Icons.Rounded.Download, contentDescription = null)
+                                            }
+                                        )
+
+                                        DropdownMenuItem(
+                                            text = { Text("Share", fontWeight = FontWeight.Medium) },
+                                            onClick = {
+                                                showOptionsMenu = false
+                                                currentSong.let { songItem ->
+                                                    val shortArt =
+                                                        if (songItem.type == "yt") "" else songItem.artUri?.substringAfter(
+                                                            "c.saavncdn.com/",
+                                                            songItem.artUri
+                                                        ) ?: ""
+                                                    val compactData =
+                                                        """{"i":"${songItem.id}","t":"${songItem.title}","a":"${songItem.artist}","r":"$shortArt"}"""
+                                                    val encodedPayload = android.util.Base64.encodeToString(
+                                                        compactData.toByteArray(Charsets.UTF_8),
+                                                        android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING
+                                                    )
+                                                    val shareUrl = "https://muzixx1.github.io/MuzixX/share?p=$encodedPayload"
+                                                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
                                                         type = "text/plain"
                                                         putExtra(
                                                             android.content.Intent.EXTRA_TEXT,
-                                                            "🎵 Hear *${song.title}* on MuzixX:\n\n$shareUrl"
+                                                            "🎵 Hear *${songItem.title}* on MuzixX:\n\n$shareUrl"
                                                         )
                                                     }
-                                            context.startActivity(
-                                                android.content.Intent.createChooser(
-                                                    shareIntent,
-                                                    "Share Track Via"
-                                                )
-                                            )
-                                        }
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Rounded.Share,
-                                            contentDescription = null
+                                                    context.startActivity(
+                                                        android.content.Intent.createChooser(shareIntent, "Share Track Via")
+                                                    )
+                                                }
+                                            },
+                                            leadingIcon = {
+                                                Icon(Icons.Rounded.Share, contentDescription = null)
+                                            }
                                         )
                                     }
+                                }
+                            }
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(24.dp))
+                                .clickable { showFullScreenLyrics = true },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (!showFullScreenLyrics) {
+                                LyricsView(
+                                    lyrics = songLyrics,
+                                    currentPositionMs = viewModel.currentPosition,
+                                    isLoading = isLyricsLoading,
+                                    displayMode = LyricsDisplayMode.CARD,
+                                    onSeekTo = { seekPosition -> viewModel.seekTo(seekPosition) },
+                                    modifier = Modifier.fillMaxSize()
                                 )
                             }
                         }
@@ -402,7 +428,7 @@ fun FullPlayerScreen(
                 }
             }
 
-            // TITLE & METADATA CONTENT AREA
+            // Title & Metadata
             Column(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -431,7 +457,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // AUDIO TIMELINE SEEK BAR
+            // Audio Timeline Seek Bar
             Column(modifier = Modifier.fillMaxWidth()) {
                 Slider(
                     value = sliderValue,
@@ -470,7 +496,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // CORE PLAYBACK CONTROLS
+            // Core Playback Controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -526,7 +552,7 @@ fun FullPlayerScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // UTILITY BAR CONTROL
+            // Utility Action Bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -601,7 +627,7 @@ fun FullPlayerScreen(
             }
         }
 
-        // Overlays
+        // Dialogs & Sheets
         if (showEqualizer) {
             EqualizerPage(viewModel = viewModel, onDismiss = { showEqualizer = false })
         }
@@ -609,7 +635,70 @@ fun FullPlayerScreen(
             AboutSongScreen(song = song, onBackClick = { navigateToAboutSong = false })
         }
 
-        // Playlist BottomSheet
+        // Interactive Fullscreen Lyrics Dialog
+        if (showFullScreenLyrics) {
+            Dialog(
+                onDismissRequest = { showFullScreenLyrics = false },
+                properties = DialogProperties(usePlatformDefaultWidth = false)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .glassEffect(RoundedCornerShape(24.dp))
+                        .statusBarsPadding()
+                        .navigationBarsPadding()
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 20.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = song?.title ?: "Lyrics",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = song?.artist ?: "",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+
+                            IconButton(onClick = { showFullScreenLyrics = false }) {
+                                Icon(
+                                    imageVector = Icons.Rounded.Close,
+                                    contentDescription = "Close Lyrics",
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+
+                        LyricsView(
+                            lyrics = songLyrics,
+                            currentPositionMs = viewModel.currentPosition,
+                            isLoading = isLyricsLoading,
+                            displayMode = LyricsDisplayMode.FULLSCREEN,
+                            onSeekTo = { seekPosition -> viewModel.seekTo(seekPosition) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Add to Playlist BottomSheet
         if (showPlaylistDialog && song != null) {
             ModalBottomSheet(
                 onDismissRequest = { showPlaylistDialog = false },
