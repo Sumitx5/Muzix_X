@@ -319,7 +319,7 @@ fun AuthScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(60.dp))
         }
     }
 }
