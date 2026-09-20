@@ -16,6 +16,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -25,7 +26,11 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -91,8 +96,23 @@ class MainActivity : ComponentActivity() {
                 var currentScreen by remember { mutableStateOf("Home") }
                 var showFullPlayer by remember { mutableStateOf(false) }
 
+                var isBottomBarVisible by remember { mutableStateOf(true) }
+
+                val nestedScrollConnection = remember {
+                    object : NestedScrollConnection {
+                        override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                            if (available.y < -12) {
+                                isBottomBarVisible = false
+                            } else if (available.y > 12) {
+                                isBottomBarVisible = true
+                            }
+                            return Offset.Zero
+                        }
+                    }
+                }
+
                 val selectedSong = musicViewModel.selectedSong
-                val isFullScreenView = currentScreen == "Profile" || currentScreen == "Settings" || currentScreen == "Integration" || currentScreen == "ListenTogether" || currentScreen == "PermissionsScreen"
+                val isFullScreenView = currentScreen == "Settings" || currentScreen == "Integration" || currentScreen == "ListenTogether" || currentScreen == "PermissionsScreen" || currentScreen == "AuthScreen"
 
                 val view = androidx.compose.ui.platform.LocalView.current
                 if (!view.isInEditMode) {
@@ -178,6 +198,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background)
+                        .nestedScroll(nestedScrollConnection)
                 ) {
                     Scaffold(
                         modifier = Modifier.fillMaxSize(),
@@ -201,7 +222,7 @@ class MainActivity : ComponentActivity() {
                                         )
                                         val fadeSpec = tween<Float>(durationMillis = 300)
 
-                                        if (targetState == "Home" || initialState == "Profile" || initialState == "Settings") {
+                                        if (targetState == "Home" || initialState == "Profile" || initialState == "Settings" ) {
                                             (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { -it }) + fadeIn(fadeSpec)) togetherWith
                                                     (slideOutHorizontally(animationSpec = expressiveSpring, targetOffsetX = { it }) + fadeOut(fadeSpec))
                                         } else {
@@ -216,32 +237,37 @@ class MainActivity : ComponentActivity() {
                                             viewModel = musicViewModel,
                                             authViewModel = authViewModel,
                                             context = context,
-                                            onProfileClick = { currentScreen = "Profile" },
-                                            onSettingsClick = { currentScreen = "Settings" },
-                                            onIntegrationClick = { currentScreen = "Integration" },
-                                            onListenTogetherClick = { currentScreen = "ListenTogether" },
-                                            onPermClick = { currentScreen = "PermissionsScreen"}
                                         )
                                         "Search" -> SearchScreen(viewModel = musicViewModel)
                                         "Library" -> LibraryScreen(viewModel = musicViewModel)
                                         "Profile" -> ProfileScreen(
                                             viewModel = musicViewModel,
                                             authViewModel = authViewModel,
-                                            onBackClick = { currentScreen = "Home" },
+                                            onSettingsClick = { currentScreen = "Settings" },
+                                            onIntegrationClick = { currentScreen = "Integration" },
+                                            onListenTogetherClick = { currentScreen = "ListenTogether" },
+                                            onPermClick = { currentScreen = "PermissionsScreen"},
                                             modifier = Modifier.fillMaxSize()
                                         )
                                         "Settings" -> SettingsScreen(
                                             viewModel = musicViewModel,
-                                            onBackClick = { currentScreen = "Home" }
+                                            onBackClick = { currentScreen = "Profile" }
                                         )
                                         "Integration" -> IntegrationScreen(
                                             viewModel = musicViewModel,
-                                            onBackClick = { currentScreen = "Home" },
+                                            onBackClick = { currentScreen = "Profile" },
                                             modifier = Modifier.fillMaxSize()
                                         )
                                         "ListenTogether" -> {}
                                         "PermissionsScreen" -> PermissionsScreen(
-                                            onBackClick = { currentScreen = "Home"},
+                                            onBackClick = { currentScreen = "Profile"},
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                        "AuthScreen" -> AuthScreen(
+                                            authViewModel,
+                                            musicViewModel,
+                                            onAuthSuccess = {},
+                                            onBackClick = { currentScreen = "Profile" },
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     }
@@ -249,14 +275,28 @@ class MainActivity : ComponentActivity() {
                             }
 
                             if (!isFullScreenView) {
+                                val miniPlayerBottomPadding by animateDpAsState(
+                                    targetValue = if (isBottomBarVisible) 8.dp else 12.dp,
+                                    animationSpec = spring(
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                        stiffness = Spring.StiffnessMediumLow
+                                    ),
+                                    label = "MiniPlayerPlacementAnimation"
+                                )
+
                                 Column(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
                                         .fillMaxWidth()
+                                        .navigationBarsPadding()
                                         .background(Color.Transparent)
                                 ) {
                                     if (selectedSong != null) {
-                                        Box(modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.CenterHorizontally)
+                                                .padding(bottom = miniPlayerBottomPadding)
+                                        ) {
                                             MiniPlayer(
                                                 song = selectedSong,
                                                 isPlaying = musicViewModel.isPlaying,
@@ -267,16 +307,11 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
 
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 8.dp)
-                                    ) {
-                                        MuzixBottomBar(
-                                            currentScreen = currentScreen,
-                                            onTabSelected = { currentScreen = it }
-                                        )
-                                    }
+                                    MuzixBottomBar(
+                                        currentScreen = currentScreen,
+                                        onTabSelected = { currentScreen = it },
+                                        visible = isBottomBarVisible
+                                    )
                                 }
                             }
                         }

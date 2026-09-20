@@ -1,5 +1,6 @@
 package com.sumit.muzixx.ui.screens
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -17,7 +18,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
@@ -28,15 +28,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.sumit.muzixx.R
 import com.sumit.muzixx.data.model.SaavnCloudPlaylistObject
 import com.sumit.muzixx.data.model.Song
-import com.sumit.muzixx.ui.components.HomeNavigationDrawer
 import com.sumit.muzixx.utils.glassEffect
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import com.sumit.muzixx.viewmodel.MusicViewModel
@@ -44,22 +47,33 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 import java.util.Locale
 
+private fun String?.toLowResArtUrl(): String? {
+    if (this == null) return null
+    return when {
+        contains("500x500") -> replace("500x500", "250x250")
+        contains("350x350") -> replace("350x350", "250x250")
+        contains("maxresdefault.jpg") -> replace("maxresdefault.jpg", "mqdefault.jpg")
+        contains("hqdefault.jpg") -> replace("hqdefault.jpg", "mqdefault.jpg")
+        else -> this
+    }
+}
+
+@SuppressLint("ConfigurationScreenWidthHeight")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     viewModel: MusicViewModel,
     authViewModel: AuthViewModel,
     context: Context,
-    onProfileClick: () -> Unit,
-    onSettingsClick: () -> Unit,
-    onIntegrationClick: () -> Unit,
-    onListenTogetherClick: () -> Unit,
-    onPermClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scope = rememberCoroutineScope()
-    val drawerState = rememberDrawerState(DrawerValue.Closed)
     val accentColor = MaterialTheme.colorScheme.primary
+
+    val configuration = LocalConfiguration.current
+    val screenWidth = configuration.screenWidthDp.dp
+    val itemHorizontalSpacing = 12.dp
+    val horizontalScreenPadding = 16.dp
+    val dynamicCardWidth = (screenWidth - (horizontalScreenPadding * 2) - (itemHorizontalSpacing * 2)) / 3f
 
     val currentUserName = remember(authViewModel.currentUser, viewModel.settings.userName) {
         when {
@@ -68,6 +82,7 @@ fun HomeScreen(
             else -> "User"
         }
     }
+    val message = listOf("Welcome back $currentUserName. Ready for some music?","Good to See You $currentUserName. Lets change the vibe!","$currentUserName, back for more beats?","$currentUserName! Step into your soundscape")
 
     val hindiHits = viewModel.contentManager.saavnHminiHits
     val chuddyBuddies = viewModel.contentManager.saavnTrendingSongs
@@ -121,428 +136,399 @@ fun HomeScreen(
         }
     }
 
-    BackHandler(drawerState.isOpen) {
-        scope.launch { drawerState.close() }
-    }
-
     BackHandler(viewModel.contentManager.currentCloudPlaylistName != null) {
         viewModel.contentManager.closeCloudPlaylistDetails()
     }
 
-    HomeNavigationDrawer(
-        drawerState = drawerState,
-        onProfileClick = {
-            scope.launch {
-                drawerState.close()
-                onProfileClick()
-            }
-        },
-        onCheckUpdatesClick = {
-            scope.launch { drawerState.close() }
-            viewModel.triggerUpdateCheck()
-        },
-        onSettingsClick = {
-            scope.launch { drawerState.close() }
-            onSettingsClick()
-        },
-        onIntegrationsClick = {
-            scope.launch { drawerState.close() }
-            onIntegrationClick()
-        },
-        onListenTogetherClick = {
-            scope.launch { drawerState.close() }
-            onListenTogetherClick()
-        },
-        onPermClick = {
-            scope.launch { drawerState.close() }
-            onPermClick()
-        },
-        userName = currentUserName
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
     ) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = message.random(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    bottom = if (selectedSong != null) 80.dp else 60.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                if (isLastDayOfMonth) {
+                    item(key = "monthly_recap_section") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .glassEffect(RoundedCornerShape(20.dp))
+                                .clickable {
+                                    Toast.makeText(context, "Recap is coming soon!", Toast.LENGTH_SHORT).show()
+                                }
+                                .padding(16.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Rounded.CalendarMonth,
+                                    contentDescription = "Recap Icon",
+                                    tint = accentColor,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = "Your $currentMonthName Recap is Ready!",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = "Take a look back at your listening habits, top tracks, and statistics this past month.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                item(key = "song_recomends") {
+                    if (recommendedSongs.isNotEmpty() || viewModel.contentManager.isRecommendationsLoading) {
+                        SongSection(
+                            title = "Recommended For You",
+                            songs = viewModel.contentManager.recommendedSongs,
+                            isLoading = viewModel.contentManager.isRecommendationsLoading,
+                            isGrid = true,
+                            cardWidth = dynamicCardWidth,
+                            onClick = { index ->
+                                viewModel.playYouTubeSearchResultWithAutoplay(recommendedSongs, index)
+                            }
+                        )
+                    }
+                }
+
+                item(key = "trending_songs") {
+                    SongSection(
+                        title = "Trending Today",
+                        songs = ytTrendingSongs,
+                        isLoading = viewModel.contentManager.isYouTubeTrendingLoading,
+                        cardWidth = dynamicCardWidth,
+                        onClick = { index ->
+                            viewModel.playYouTubeSearchResultWithAutoplay(ytTrendingSongs, index)
+                        }
+                    )
+                }
+
+                if (recentlyHeard.isNotEmpty()) {
+                    item(key = "recently_heard_songs") {
+                        SongSection(
+                            title = "Recently Played",
+                            songs = recentlyHeard,
+                            isLoading = false,
+                            cardWidth = dynamicCardWidth,
+                            onClick = { index ->
+                                val targetTrack = recentlyHeard[index]
+                                if (targetTrack.id.startsWith("yt_")) {
+                                    viewModel.playYouTubeSong(recentlyHeard, index)
+                                } else if (targetTrack.id.all { it.isDigit() } || targetTrack.isStreaming) {
+                                    viewModel.playSaavnSong(recentlyHeard, index)
+                                } else {
+                                    viewModel.playLocalSong(recentlyHeard, index)
+                                }
+                            }
+                        )
+                    }
+                }
+
+                item(key = "saavn_baarish") {
+                    SongSection(
+                        title = "Baarish Or Dance",
+                        songs = baarish,
+                        isLoading = viewModel.contentManager.isNewReleasesLoading,
+                        cardWidth = dynamicCardWidth,
+                        onClick = { index -> viewModel.playSaavnSong(baarish, index) }
+                    )
+                }
+
+                item(key = "hindi_hits") {
+                    SongSection(
+                        title = "Hindi: India Superhit's",
+                        songs = hindiHits,
+                        isLoading = viewModel.contentManager.isHindiHitLoading,
+                        cardWidth = dynamicCardWidth,
+                        onClick = { index -> viewModel.playSaavnSong(hindiHits, index) }
+                    )
+                }
+
+                item(key = "cloud_playlists_90") {
+                    CloudPlaylistSection(
+                        title = "Best of 90's Playlists",
+                        playlists = featured90sPlaylists,
+                        isLoading = is90sLoading,
+                        accentColor = accentColor,
+                        cardWidth = dynamicCardWidth,
+                        playlistId = { item -> item.id ?: "" },
+                        playlistTitle = { item -> item.name ?: "Cloud Playlist" },
+                        imageUrl = { item -> item.image?.lastOrNull()?.url },
+                        trackCount = { item -> item.songCount },
+                        onPlaylistClick = { id, name ->
+                            viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
+                        }
+                    )
+                }
+
+                item(key = "cloud_playlists_best_romance") {
+                    CloudPlaylistSection(
+                        title = "Best of Romance Playlists",
+                        playlists = romancePlaylists,
+                        isLoading = isRomanceLoading,
+                        accentColor = accentColor,
+                        cardWidth = dynamicCardWidth,
+                        playlistId = { item -> item.id ?: "" },
+                        playlistTitle = { item -> item.name ?: "Cloud Playlist" },
+                        imageUrl = { item -> item.image?.lastOrNull()?.url },
+                        trackCount = { item -> item.songCount },
+                        onPlaylistClick = { id, name ->
+                            viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
+                        }
+                    )
+                }
+
+                item(key = "saavn_buddies") {
+                    SongSection(
+                        title = "Chuddy Buddies",
+                        songs = chuddyBuddies,
+                        isLoading = viewModel.contentManager.isTrendingLoading,
+                        cardWidth = dynamicCardWidth,
+                        onClick = { index -> viewModel.playSaavnSong(chuddyBuddies, index) }
+                    )
+                }
+
+                item(key = "cloud_playlists_party") {
+                    CloudPlaylistSection(
+                        title = "Top Party Playlists",
+                        playlists = partyHitsPlaylists,
+                        isLoading = isPartyLoading,
+                        accentColor = accentColor,
+                        cardWidth = dynamicCardWidth,
+                        playlistId = { item -> item.id ?: "" },
+                        playlistTitle = { item -> item.name ?: "Cloud Playlist" },
+                        imageUrl = { item -> item.image?.lastOrNull()?.url },
+                        trackCount = { item -> item.songCount },
+                        onPlaylistClick = { id, name ->
+                            viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
+                        }
+                    )
+                }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = viewModel.contentManager.currentCloudPlaylistName != null,
+            enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Header
+            val playlistName = viewModel.contentManager.currentCloudPlaylistName ?: ""
+            val playlistSongs = viewModel.contentManager.currentCloudPlaylistSongs
+            val headerCover = remember(playlistSongs) { playlistSongs.firstOrNull()?.artUri.toLowResArtUrl() }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.background)
+            ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 12.dp),
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                    IconButton(onClick = { viewModel.contentManager.closeCloudPlaylistDetails() }) {
                         Icon(
-                            imageVector = Icons.Rounded.AccountCircle,
-                            contentDescription = "Open Navigation Menu",
-                            tint = MaterialTheme.colorScheme.primary
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back",
+                            tint = MaterialTheme.colorScheme.onBackground
                         )
                     }
-
-                    Column(modifier = Modifier.padding(start = 4.dp)) {
-                        Text(
-                            text = "Hello, $currentUserName",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
+                    Text(
+                        text = "Cloud Playlist",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground
+                    )
                 }
 
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        bottom = if (selectedSong != null) 140.dp else 60.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(24.dp)
-                ) {
-                    if (isLastDayOfMonth) {
-                        item(key = "monthly_recap_section") {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                                    .glassEffect(RoundedCornerShape(20.dp))
-                                    .clickable {
-                                        Toast.makeText(context, "Recap is coming soon!", Toast.LENGTH_SHORT).show()
-                                    }
-                                    .padding(16.dp)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Rounded.CalendarMonth,
-                                        contentDescription = "Recap Icon",
-                                        tint = accentColor,
-                                        modifier = Modifier.size(40.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(16.dp))
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(
-                                            text = "Your $currentMonthName Recap is Ready!",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.height(2.dp))
-                                        Text(
-                                            text = "Take a look back at your listening habits, top tracks, and statistics this past month.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    item(key = "song_recomends") {
-                        if (recommendedSongs.isNotEmpty() || viewModel.contentManager.isRecommendationsLoading) {
-                            SongSection(
-                                title = "Recommended For You",
-                                songs = viewModel.contentManager.recommendedSongs,
-                                isLoading = viewModel.contentManager.isRecommendationsLoading,
-                                isGrid = true,
-                                onClick = { index ->
-                                    viewModel.playYouTubeSearchResultWithAutoplay(recommendedSongs, index)
-                                }
-                            )
-                        }
-                    }
-
-                    item(key = "trending_songs") {
-                        SongSection(
-                            title = "Trending Today",
-                            songs = ytTrendingSongs,
-                            isLoading = viewModel.contentManager.isYouTubeTrendingLoading,
-                            onClick = { index ->
-                                viewModel.playYouTubeSearchResultWithAutoplay(ytTrendingSongs, index)
-                            }
-                        )
-                    }
-
-                    if (recentlyHeard.isNotEmpty()) {
-                        item(key = "recently_heard_songs") {
-                            SongSection(
-                                title = "Recently Played",
-                                songs = recentlyHeard,
-                                isLoading = false,
-                                onClick = { index ->
-                                    val targetTrack = recentlyHeard[index]
-                                    if (targetTrack.id.startsWith("yt_")) {
-                                        viewModel.playYouTubeSong(recentlyHeard, index)
-                                    } else if (targetTrack.id.all { it.isDigit() } || targetTrack.isStreaming) {
-                                        viewModel.playSaavnSong(recentlyHeard, index)
-                                    } else {
-                                        viewModel.playLocalSong(recentlyHeard, index)
-                                    }
-                                }
-                            )
-                        }
-                    }
-
-                    item(key = "saavn_baarish") {
-                        SongSection(
-                            title = "Baarish Or Dance",
-                            songs = baarish,
-                            isLoading = viewModel.contentManager.isNewReleasesLoading,
-                            onClick = { index -> viewModel.playSaavnSong(baarish, index) }
-                        )
-                    }
-
-                    item(key = "hindi_hits") {
-                        SongSection(
-                            title = "Hindi: India Superhit's",
-                            songs = hindiHits,
-                            isLoading = viewModel.contentManager.isHindiHitLoading,
-                            onClick = { index -> viewModel.playSaavnSong(hindiHits, index) }
-                        )
-                    }
-
-                    item(key = "cloud_playlists_90") {
-                        CloudPlaylistSection(
-                            title = "Best of 90's Playlists",
-                            playlists = featured90sPlaylists,
-                            isLoading = is90sLoading,
-                            accentColor = accentColor,
-                            playlistId = { item -> item.id ?: "" },
-                            playlistTitle = { item -> item.name ?: "Cloud Playlist" },
-                            imageUrl = { item -> item.image?.lastOrNull()?.url },
-                            trackCount = { item -> item.songCount },
-                            onPlaylistClick = { id, name ->
-                                viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
-                            }
-                        )
-                    }
-
-                    item(key = "cloud_playlists_best_romance") {
-                        CloudPlaylistSection(
-                            title = "Best of Romance Playlists",
-                            playlists = romancePlaylists,
-                            isLoading = isRomanceLoading,
-                            accentColor = accentColor,
-                            playlistId = { item -> item.id ?: "" },
-                            playlistTitle = { item -> item.name ?: "Cloud Playlist" },
-                            imageUrl = { item -> item.image?.lastOrNull()?.url },
-                            trackCount = { item -> item.songCount },
-                            onPlaylistClick = { id, name ->
-                                viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
-                            }
-                        )
-                    }
-
-                    item(key = "saavn_buddies") {
-                        SongSection(
-                            title = "Chuddy Buddies",
-                            songs = chuddyBuddies,
-                            isLoading = viewModel.contentManager.isTrendingLoading,
-                            onClick = { index -> viewModel.playSaavnSong(chuddyBuddies, index) }
-                        )
-                    }
-
-                    item(key = "cloud_playlists_party") {
-                        CloudPlaylistSection(
-                            title = "Top Party Playlists",
-                            playlists = partyHitsPlaylists,
-                            isLoading = isPartyLoading,
-                            accentColor = accentColor,
-                            playlistId = { item -> item.id ?: "" },
-                            playlistTitle = { item -> item.name ?: "Cloud Playlist" },
-                            imageUrl = { item -> item.image?.lastOrNull()?.url },
-                            trackCount = { item -> item.songCount },
-                            onPlaylistClick = { id, name ->
-                                viewModel.contentManager.loadCloudPlaylistDetails(playlistId = id, playlistName = name)
-                            }
-                        )
-                    }
-                }
-            }
-
-            // Playlist Details Overlay
-            AnimatedVisibility(
-                visible = viewModel.contentManager.currentCloudPlaylistName != null,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            ) {
-                val playlistName = viewModel.contentManager.currentCloudPlaylistName ?: ""
-                val playlistSongs = viewModel.contentManager.currentCloudPlaylistSongs
-                val headerCover = remember(playlistSongs) { playlistSongs.firstOrNull()?.artUri }
-
-                Column(
+                Box(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.background)
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { viewModel.contentManager.closeCloudPlaylistDetails() }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                                contentDescription = "Back",
-                                tint = MaterialTheme.colorScheme.onBackground
-                            )
-                        }
+                    if (viewModel.contentManager.isCloudPlaylistLoading) {
+                        CircularProgressIndicator(color = accentColor)
+                    } else if (playlistSongs.isEmpty()) {
                         Text(
-                            text = "Cloud Playlist",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onBackground
+                            text = "No tracks found inside this playlist.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyLarge
                         )
-                    }
-
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .weight(1f),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (viewModel.contentManager.isCloudPlaylistLoading) {
-                            CircularProgressIndicator(color = accentColor)
-                        } else if (playlistSongs.isEmpty()) {
-                            Text(
-                                text = "No tracks found inside this playlist.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
-                        } else {
-                            LazyColumn(
-                                modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = if (selectedSong != null) 122.dp else 44.dp)
-                            ) {
-                                item(key = "playlist_header") {
-                                    Column(
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(bottom = if (selectedSong != null) 122.dp else 44.dp)
+                        ) {
+                            item(key = "playlist_header") {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(headerCover)
+                                            .size(200, 200)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = playlistName,
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 20.dp, vertical = 12.dp),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        AsyncImage(
-                                            model = headerCover,
-                                            contentDescription = playlistName,
-                                            modifier = Modifier
-                                                .size(160.dp)
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                                            contentScale = ContentScale.Crop,
-                                            error = painterResource(R.drawable.default_music),
-                                            placeholder = painterResource(R.drawable.default_music)
-                                        )
+                                            .size(160.dp)
+                                            .clip(RoundedCornerShape(16.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                                        contentScale = ContentScale.Crop,
+                                        error = painterResource(R.drawable.default_music),
+                                        placeholder = painterResource(R.drawable.default_music)
+                                    )
 
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Text(
-                                            text = playlistName,
-                                            style = MaterialTheme.typography.headlineMedium,
-                                            fontWeight = FontWeight.Bold,
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = playlistName,
+                                        style = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
 
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "${playlistSongs.size} Songs",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "${playlistSongs.size} Songs",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
 
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Button(
-                                                onClick = { viewModel.playSaavnSong(playlistSongs.toList().shuffled(), 0) },
-                                                enabled = playlistSongs.isNotEmpty(),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = accentColor,
-                                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                                ),
-                                                shape = RoundedCornerShape(12.dp),
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(48.dp)
-                                            ) {
-                                                Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Shuffle", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                                            }
-
-                                            Button(
-                                                onClick = { viewModel.playSaavnSong(playlistSongs.toList(), 0) },
-                                                enabled = playlistSongs.isNotEmpty(),
-                                                colors = ButtonDefaults.buttonColors(
-                                                    containerColor = accentColor,
-                                                    contentColor = MaterialTheme.colorScheme.onPrimary
-                                                ),
-                                                shape = RoundedCornerShape(12.dp),
-                                                modifier = Modifier
-                                                    .weight(1f)
-                                                    .height(48.dp)
-                                            ) {
-                                                Icon(Icons.Rounded.PlayArrow, "Play All", modifier = Modifier.size(22.dp))
-                                                Spacer(modifier = Modifier.width(6.dp))
-                                                Text("Play All", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                    }
-                                }
-
-                                itemsIndexed(
-                                    items = playlistSongs,
-                                    key = { _, song -> song.id }
-                                ) { index, song ->
+                                    Spacer(modifier = Modifier.height(16.dp))
                                     Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable { viewModel.playSaavnSong(playlistSongs, index) }
-                                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Text(
-                                            text = "${index + 1}",
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.width(28.dp)
-                                        )
-
-                                        AsyncImage(
-                                            model = song.artUri,
-                                            contentDescription = song.title,
+                                        Button(
+                                            onClick = { viewModel.playSaavnSong(playlistSongs.toList().shuffled(), 0) },
+                                            enabled = playlistSongs.isNotEmpty(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = accentColor,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
                                             modifier = Modifier
-                                                .size(48.dp)
-                                                .clip(RoundedCornerShape(8.dp)),
-                                            contentScale = ContentScale.Crop,
-                                            error = painterResource(R.drawable.default_music),
-                                            placeholder = painterResource(R.drawable.default_music)
-                                        )
-
-                                        Spacer(modifier = Modifier.width(12.dp))
-
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = song.title,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                                fontWeight = FontWeight.SemiBold,
-                                                style = MaterialTheme.typography.bodyLarge,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                            Text(
-                                                text = song.artist,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                                style = MaterialTheme.typography.bodyMedium,
-                                                maxLines = 1,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
+                                                .weight(1f)
+                                                .height(48.dp)
+                                        ) {
+                                            Icon(Icons.Rounded.Shuffle, "Shuffle", modifier = Modifier.size(20.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Shuffle", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                                         }
+
+                                        Button(
+                                            onClick = { viewModel.playSaavnSong(playlistSongs.toList(), 0) },
+                                            enabled = playlistSongs.isNotEmpty(),
+                                            colors = ButtonDefaults.buttonColors(
+                                                containerColor = accentColor,
+                                                contentColor = MaterialTheme.colorScheme.onPrimary
+                                            ),
+                                            shape = RoundedCornerShape(12.dp),
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .height(48.dp)
+                                        ) {
+                                            Icon(Icons.Rounded.PlayArrow, "Play All", modifier = Modifier.size(22.dp))
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text("Play All", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            }
+
+                            itemsIndexed(
+                                items = playlistSongs,
+                                key = { _, song -> song.id }
+                            ) { index, song ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { viewModel.playSaavnSong(playlistSongs, index) }
+                                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.width(28.dp)
+                                    )
+
+                                    AsyncImage(
+                                        model = ImageRequest.Builder(LocalContext.current)
+                                            .data(song.artUri.toLowResArtUrl())
+                                            .size(80, 80)
+                                            .crossfade(true)
+                                            .build(),
+                                        contentDescription = song.title,
+                                        modifier = Modifier
+                                            .size(48.dp)
+                                            .clip(RoundedCornerShape(8.dp)),
+                                        contentScale = ContentScale.Crop,
+                                        error = painterResource(R.drawable.default_music),
+                                        placeholder = painterResource(R.drawable.default_music)
+                                    )
+
+                                    Spacer(modifier = Modifier.width(12.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = song.title,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            fontWeight = FontWeight.SemiBold,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = song.artist,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
                                     }
                                 }
                             }
@@ -559,6 +545,7 @@ private fun SongSection(
     title: String,
     songs: List<Song>,
     isLoading: Boolean,
+    cardWidth: Dp,
     isGrid: Boolean = false,
     onClick: (Int) -> Unit
 ) {
@@ -640,7 +627,7 @@ private fun SongSection(
             else -> {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     itemsIndexed(
                         items = songs,
@@ -648,6 +635,7 @@ private fun SongSection(
                     ) { index, song ->
                         SongCard(
                             song = song,
+                            cardWidth = cardWidth,
                             onClick = { onClick(index) }
                         )
                     }
@@ -673,7 +661,11 @@ private fun SongCompactChip(
             modifier = Modifier.padding(8.dp)
         ) {
             AsyncImage(
-                model = song.artUri,
+                model = ImageRequest.Builder(LocalContext.current)
+                    .data(song.artUri.toLowResArtUrl())
+                    .size(80, 80)
+                    .crossfade(true)
+                    .build(),
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
@@ -701,27 +693,32 @@ private fun SongCompactChip(
 @Composable
 private fun SongCard(
     song: Song,
+    cardWidth: Dp,
     onClick: () -> Unit
 ) {
     Column(
         modifier = Modifier
-            .width(100.dp)
-            .clip(RoundedCornerShape(8.dp))
+            .width(cardWidth)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
         AsyncImage(
-            model = song.artUri,
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(song.artUri.toLowResArtUrl())
+                .size(120, 120)
+                .crossfade(true)
+                .build(),
             contentDescription = null,
             modifier = Modifier
-                .size(100.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .size(cardWidth)
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             contentScale = ContentScale.Crop,
             placeholder = painterResource(R.drawable.default_music),
             error = painterResource(R.drawable.default_music)
         )
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
 
         Text(
             text = song.title,
@@ -749,21 +746,26 @@ fun CloudPlaylistCard(
     title: String,
     imageUrl: String?,
     trackCount: Int?,
+    cardWidth: Dp,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier
-            .width(90.dp)
+            .width(cardWidth)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
         AsyncImage(
-            model = imageUrl,
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(imageUrl.toLowResArtUrl())
+                .size(120, 120)
+                .crossfade(true)
+                .build(),
             contentDescription = title,
             modifier = Modifier
-                .size(90.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(cardWidth)
+                .clip(RoundedCornerShape(16.dp))
                 .background(MaterialTheme.colorScheme.surfaceVariant),
             error = painterResource(R.drawable.default_music),
             placeholder = painterResource(R.drawable.default_music),
@@ -796,6 +798,7 @@ fun <T> CloudPlaylistSection(
     title: String,
     playlists: List<T>,
     isLoading: Boolean,
+    cardWidth: Dp,
     accentColor: Color = MaterialTheme.colorScheme.primary,
     playlistId: (T) -> String,
     playlistTitle: (T) -> String,
@@ -818,7 +821,7 @@ fun <T> CloudPlaylistSection(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(90.dp),
+                    .height(cardWidth),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = accentColor)
@@ -855,6 +858,7 @@ fun <T> CloudPlaylistSection(
                         title = name,
                         imageUrl = imageUrl(playlist),
                         trackCount = trackCount(playlist),
+                        cardWidth = cardWidth,
                         onClick = { onPlaylistClick(id, name) }
                     )
                 }
