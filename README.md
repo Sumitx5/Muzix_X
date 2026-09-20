@@ -57,7 +57,5 @@ The Build Below May Contain Some Phone Breaking Bugs:
 * **Jio Saavn Unofficial Api:** [Link](https://saavn.sumit.co/docs)
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
 
-## Contributors & Beta Testers 
-* **[Chirag](https://github.com/khatrix07)**
-* **[Tushar](https://github.com/Agent00889)**
-* **[Nitin](https://github.com/nitin-arch1912)**
+## Git Diagram By [Gitdiagram](https://Gitdiagram.com)
+<img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/diagram.png" width="280">
