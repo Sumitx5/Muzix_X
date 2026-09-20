@@ -44,7 +44,7 @@ fun MuzixBottomBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp)
-                .padding(bottom = 4.dp),
+                .padding(bottom = 2.dp),
             contentAlignment = Alignment.Center
         ) {
             Box(
@@ -56,7 +56,7 @@ fun MuzixBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                    .padding(horizontal = 6.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
