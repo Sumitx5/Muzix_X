@@ -54,7 +54,7 @@ The Build Below May Contain Some Phone Breaking Bugs:
 ## 🤝 Credits & Acknowledgments
 
 * **YouTube Extraction Layer:** Powered by [`SimpMusic Kotlin:youtube-Extractor`](https://github.com/maxrave-dev/kotlin-youtubeExtractor) & [`Pipe`](https://github.com/TeamNewPipe/NewPipe) parsing engines.
-* **Jio Saavn Unofficial Api:** [Link](https://saavn.sumit.co/docs)
+* **Jio Saavn Unofficial Api:** [Link](https://github.com/sumitkolhe/jiosaavn-api)
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
 
 ## Git Diagram By [Gitdiagram](https://Gitdiagram.com)
