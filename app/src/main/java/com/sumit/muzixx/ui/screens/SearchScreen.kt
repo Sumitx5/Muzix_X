@@ -70,7 +70,7 @@ fun SearchScreen(
     val hasData by remember { derivedStateOf { combinedResults.isNotEmpty() } }
 
     val isPlayerActive = viewModel.selectedSong != null
-    val bottomPadding = if (isPlayerActive) 140.dp else 60.dp
+    val bottomPadding = if (isPlayerActive) 120.dp else 80.dp
 
     fun executeCombinedSearch(query: String) {
         val trimmed = query.trim()
