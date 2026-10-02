@@ -31,6 +31,10 @@ class PlaybackPersistenceManager(context: Context) {
         private const val KEY_PLAYBACK_POSITION_SONG_ID = "last_song_playback_position_song_id"
         private const val KEY_PLAYBACK_POSITION_SAVED_AT = "last_song_playback_position_saved_at"
 
+        // Active Queue Recovery
+        private const val KEY_SAVED_PLAYBACK_QUEUE = "saved_playback_queue_json"
+        private const val KEY_SAVED_PLAYBACK_INDEX = "saved_playback_index_key"
+
         // Recently played
         private const val KEY_RECENTLY_PLAYED = "recently_heard_songs_json"
 
@@ -106,6 +110,71 @@ class PlaybackPersistenceManager(context: Context) {
             folderName = folderName,
             type = type
         )
+    }
+
+    fun saveCurrentPlaybackQueue(queue: List<Song>, activeIndex: Int) {
+        if (queue.isEmpty()) return
+        try {
+            val jsonArray = JSONArray()
+
+            for (song in queue) {
+                val jsonObject = JSONObject().apply {
+                    put("id", song.id)
+                    put("title", song.title)
+                    put("artist", song.artist)
+                    put("uri", song.uri)
+                    put("artUri", song.artUri ?: "")
+                    put("duration", song.duration)
+                    put("isStreaming", song.isStreaming)
+                    put("folderName", song.folderName)
+                    put("type", song.type)
+                }
+                jsonArray.put(jsonObject)
+            }
+
+            prefs.edit {
+                putString(KEY_SAVED_PLAYBACK_QUEUE, jsonArray.toString())
+                putInt(KEY_SAVED_PLAYBACK_INDEX, activeIndex.coerceAtLeast(0))
+            }
+            Log.d(TAG, "Saved playback queue: ${queue.size} songs at index $activeIndex")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed saving playback queue", e)
+        }
+    }
+
+    fun loadSavedPlaybackQueue(): Pair<List<Song>, Int> {
+        val rawJson = prefs.getString(KEY_SAVED_PLAYBACK_QUEUE, null) ?: return Pair(emptyList(), 0)
+        val savedIndex = prefs.getInt(KEY_SAVED_PLAYBACK_INDEX, 0)
+        val queueList = mutableListOf<Song>()
+
+        try {
+            val jsonArray = JSONArray(rawJson)
+
+            for (i in 0 until jsonArray.length()) {
+                val jsonObject = jsonArray.getJSONObject(i)
+                val artString = jsonObject.optString("artUri", "")
+                val resolvedArt = artString.ifBlank { null }
+
+                queueList.add(
+                    Song(
+                        id = jsonObject.getString("id"),
+                        title = jsonObject.getString("title"),
+                        artist = jsonObject.getString("artist"),
+                        uri = jsonObject.optString("uri", ""),
+                        artUri = resolvedArt,
+                        duration = jsonObject.optLong("duration", 0L),
+                        isStreaming = jsonObject.optBoolean("isStreaming", false),
+                        folderName = jsonObject.optString("folderName", "Unknown"),
+                        type = jsonObject.optString("type", "local")
+                    )
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed decoding playback queue JSON", e)
+        }
+
+        val safeIndex = if (queueList.isNotEmpty()) savedIndex.coerceIn(0, queueList.lastIndex) else 0
+        return Pair(queueList, safeIndex)
     }
 
     fun saveCurrentPlaybackPosition(

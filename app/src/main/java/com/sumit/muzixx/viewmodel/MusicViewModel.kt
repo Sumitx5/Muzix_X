@@ -100,6 +100,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             },
             onPlaybackStopped = {
                 saveCurrentPlaybackPosition()
+                saveQueueState()
                 if (::stats.isInitialized) stats.stopPlaybackTimer()
                 mediaStateHolder.stopTracking()
             },
@@ -107,11 +108,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 if (::stats.isInitialized) stats.incrementSongsHeardCount()
 
                 persistenceManager?.saveLastPlayedSong(switchedSong)
+                saveQueueState()
 
                 addToRecentlyPlayed(switchedSong)
                 handleQueueLookaheadAutoplay()
             },
-            onQueueUpdated = { updatedList -> currentPlaybackQueue = updatedList },
+            onQueueUpdated = { updatedList ->
+                currentPlaybackQueue = updatedList
+                saveQueueState()
+            },
             resolveYouTubeStream = { songItem ->
                 try {
                     val cleanId = songItem.id.replace("yt_", "")
@@ -148,7 +153,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         get() = playlistController.selectedPlaylist
         set(value) { playlistController.selectedPlaylist = value }
 
-    //Initilizations
+    //Initializations
     fun initSettings() {
         if (!::settings.isInitialized) settings = SettingsRepository(context, viewModelScope)
     }
@@ -178,29 +183,38 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
         if (skipSongRestoration) return
 
-        val lastSong = persistenceManager?.loadLastPlayedSong()
-            ?: return
-
+        val lastSong = persistenceManager?.loadLastPlayedSong() ?: return
         if (lastSong.id.isBlank()) return
 
         val savedProgress = persistenceManager?.getLastPlaybackPosition(lastSong.id) ?: 0L
 
+        val (persistedQueue, persistedIndex) = persistenceManager?.loadSavedPlaybackQueue() ?: Pair(emptyList(), 0)
+
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val combinedQueue = autoplayManager.buildBootQueue(lastSong)
-                val queue = combinedQueue.ifEmpty { listOf(lastSong) }
+                val finalQueue = persistedQueue.ifEmpty {
+                    val combinedQueue = autoplayManager.buildBootQueue(lastSong)
+                    combinedQueue.ifEmpty { listOf(lastSong) }
+                }
+
+                val targetIndex = if (persistedQueue.isNotEmpty()) {
+                    val matchIdx = finalQueue.indexOfFirst { it.id == lastSong.id }
+                    if (matchIdx != -1) matchIdx else persistedIndex
+                } else 0
+
+                val targetSong = finalQueue.getOrNull(targetIndex) ?: lastSong
 
                 withContext(Dispatchers.Main) {
-                    playerController.selectedSong = lastSong
+                    playerController.selectedSong = targetSong
 
                     playerController.submitQueueToPlayer(
-                        songList = queue,
-                        startIndex = 0,
+                        songList = finalQueue,
+                        startIndex = targetIndex,
                         playWhenReady = false,
                         startPositionMs = savedProgress
                     )
 
-                    currentPlaybackQueue = queue
+                    currentPlaybackQueue = finalQueue
                     playerController.preparePlayerEngine()
                 }
             } catch (e: Exception) {
@@ -223,6 +237,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun saveQueueState() {
+        val queue = playerController.activePlaybackQueue.ifEmpty { currentPlaybackQueue }
+        if (queue.isNotEmpty()) {
+            val currentIndex = activePlaylistIndex.coerceAtLeast(0)
+            persistenceManager?.saveCurrentPlaybackQueue(queue, currentIndex)
+        }
+    }
+
     fun saveCurrentPlaybackPosition() {
         val song = selectedSong ?: return
         val pm = persistenceManager ?: return
@@ -231,6 +253,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             songId = song.id,
             positionMs = currentPosition
         )
+        saveQueueState()
     }
 
     fun overwriteStatsFromCloud(
@@ -282,6 +305,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         if (songList.isEmpty() || startIndex !in songList.indices) return
         playerController.submitQueueToPlayer(songList, startIndex)
         currentPlaybackQueue = songList
+        saveQueueState()
     }
 
     fun playSaavnSong(songList: List<Song>, startIndex: Int) = playMusicCollection(songList, startIndex)
@@ -299,6 +323,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 withContext(Dispatchers.Main) {
                     playerController.injectTracksToQueue(recs)
                     currentPlaybackQueue = playerController.activePlaybackQueue
+                    saveQueueState()
                 }
             }
         }
@@ -330,7 +355,11 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
                 try {
                     val nextTracks = autoplayManager.fetchNextLookaheadTracks(currentSong)
                     if (nextTracks.isNotEmpty()) {
-                        withContext(Dispatchers.Main) { playerController.injectTracksToQueue(nextTracks) }
+                        withContext(Dispatchers.Main) {
+                            playerController.injectTracksToQueue(nextTracks)
+                            currentPlaybackQueue = playerController.activePlaybackQueue
+                            saveQueueState()
+                        }
                     }
                 } catch (e: Exception) {
                     Log.e("MusicViewModel", "Lookahead autoplay failed", e)
@@ -346,6 +375,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
         playerController.addTrackImmediatelyNext(song)
         currentPlaybackQueue = playerController.activePlaybackQueue
+        saveQueueState()
     }
 
     fun seekTo(position: Long) {
@@ -455,6 +485,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     override fun onCleared() {
         super.onCleared()
         saveCurrentPlaybackPosition()
+        saveQueueState()
         if (::stats.isInitialized) stats.stopPlaybackTimer()
         playerController.release()
     }
