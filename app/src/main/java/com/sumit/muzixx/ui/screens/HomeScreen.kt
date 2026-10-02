@@ -2,7 +2,6 @@ package com.sumit.muzixx.ui.screens
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
@@ -15,10 +14,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -40,12 +41,14 @@ import coil.request.ImageRequest
 import com.sumit.muzixx.R
 import com.sumit.muzixx.data.model.SaavnCloudPlaylistObject
 import com.sumit.muzixx.data.model.Song
+import com.sumit.muzixx.data.network.UpdateChecker
+import com.sumit.muzixx.ui.components.MonthlyRecapBanner
+import com.sumit.muzixx.ui.components.MonthlyRecapDialog
+import com.sumit.muzixx.ui.components.RecapMaker
 import com.sumit.muzixx.utils.glassEffect
 import com.sumit.muzixx.viewmodel.AuthViewModel
 import com.sumit.muzixx.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
-import java.util.Calendar
-import java.util.Locale
 
 private fun String?.toLowResArtUrl(): String? {
     if (this == null) return null
@@ -69,6 +72,10 @@ fun HomeScreen(
 ) {
     val accentColor = MaterialTheme.colorScheme.primary
 
+    val isUpdateAvailable = UpdateChecker.isUpdateAvailable
+    val recapMaker = remember(context) { RecapMaker() }
+    val recapState = remember { recapMaker.checkRecapAvailability() }
+
     val configuration = LocalConfiguration.current
     val screenWidth = configuration.screenWidthDp.dp
     val itemHorizontalSpacing = 12.dp
@@ -82,7 +89,14 @@ fun HomeScreen(
             else -> "User"
         }
     }
-    val message = listOf("Welcome back $currentUserName. Ready for some music?","Good to See You $currentUserName. Lets change the vibe!","$currentUserName, back for more beats?","$currentUserName! Step into your soundscape")
+    val message = remember(currentUserName) {
+        listOf(
+            "Welcome back $currentUserName. Ready for some music?",
+            "Good to See You $currentUserName. Lets change the vibe!",
+            "$currentUserName, back for more beats?",
+            "$currentUserName! Step into your soundscape"
+        )
+    }
 
     val hindiHits = viewModel.contentManager.saavnHminiHits
     val chuddyBuddies = viewModel.contentManager.saavnTrendingSongs
@@ -98,14 +112,6 @@ fun HomeScreen(
         }
     }
 
-    val (isLastDayOfMonth, currentMonthName) = remember {
-        val calendar = Calendar.getInstance()
-        val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
-        val lastDay = calendar.getActualMaximum(Calendar.DAY_OF_MONTH)
-        val monthLabel = calendar.getDisplayName(Calendar.MONTH, Calendar.LONG, Locale.getDefault()) ?: "Month"
-        Pair(currentDay == lastDay, monthLabel)
-    }
-
     var featured90sPlaylists by remember { mutableStateOf<List<SaavnCloudPlaylistObject>>(emptyList()) }
     var romancePlaylists by remember { mutableStateOf<List<SaavnCloudPlaylistObject>>(emptyList()) }
     var partyHitsPlaylists by remember { mutableStateOf<List<SaavnCloudPlaylistObject>>(emptyList()) }
@@ -113,6 +119,9 @@ fun HomeScreen(
     var is90sLoading by remember { mutableStateOf(true) }
     var isRomanceLoading by remember { mutableStateOf(true) }
     var isPartyLoading by remember { mutableStateOf(true) }
+
+    var showRecapDialog by remember { mutableStateOf(false) }
+    var activeRecapMonth by remember { mutableStateOf("This Month") }
 
     LaunchedEffect(Unit) {
         viewModel.contentManager.loadYouTubeTrendingSongs()
@@ -153,7 +162,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = message.random(),
+                    text = remember { message.random() },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface
@@ -167,50 +176,33 @@ fun HomeScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
-                if (isLastDayOfMonth) {
+                if (recapState.isReady){
                     item(key = "monthly_recap_section") {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp)
-                                .glassEffect(RoundedCornerShape(20.dp))
-                                .clickable {
-                                    Toast.makeText(context, "Recap is coming soon!", Toast.LENGTH_SHORT).show()
-                                }
-                                .padding(16.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.CalendarMonth,
-                                    contentDescription = "Recap Icon",
-                                    tint = accentColor,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = "Your $currentMonthName Recap is Ready!",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Take a look back at your listening habits, top tracks, and statistics this past month.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
+                        MonthlyRecapBanner(
+                            context = context,
+                            accentColor = accentColor,
+                            onRecapClick = { monthLabel ->
+                                activeRecapMonth = monthLabel
+                                showRecapDialog = true
                             }
-                        }
+                        )
+                    }
+                }
+
+                if (isUpdateAvailable){
+                    item(key = "Update_Notification"){
+                        NotificationCard(
+                            title = "Update Notification",
+                            description = "New Update Available, Click to Download",
+                            icon = Icons.Rounded.Notifications,
+                            onClick = { viewModel.triggerUpdateCheck()},
+                            modifier = Modifier.padding(horizontal = 16.dp)
+                        )
                     }
                 }
 
                 item(key = "song_recomends") {
-                    if (recommendedSongs.isNotEmpty() || viewModel.contentManager.isRecommendationsLoading) {
+                    if (recommendedSongs.isNotEmpty()) {
                         SongSection(
                             title = "Recommended For You",
                             songs = viewModel.contentManager.recommendedSongs,
@@ -392,7 +384,7 @@ fun HomeScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(bottom = if (selectedSong != null) 122.dp else 44.dp)
+                            contentPadding = PaddingValues(bottom = if (selectedSong != null) 120.dp else 80.dp)
                         ) {
                             item(key = "playlist_header") {
                                 Column(
@@ -536,6 +528,75 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+        if (showRecapDialog) {
+            MonthlyRecapDialog(
+                viewModel = viewModel,
+                monthName = activeRecapMonth,
+                onDismiss = { showRecapDialog = false }
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotificationCard(
+    title: String,
+    description: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardShape = RoundedCornerShape(20.dp)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .glassEffect(cardShape)
+            .clip(cardShape)
+            .clickable(onClick = onClick)
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .glassEffect(CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Text(
+                text = description,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 2.dp)
+            )
         }
     }
 }
