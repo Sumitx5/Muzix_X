@@ -26,13 +26,13 @@ class SettingsRepository(
         private set
     var downloadWifiOnly by mutableStateOf(true)
         private set
-    var showLyrics by mutableStateOf(true)
+    var showLyrics by mutableStateOf(false)
         private set
-    var normalizeAudio by mutableStateOf(true)
+    var normalizeAudio by mutableStateOf(false)
         private set
     var skipSilence by mutableStateOf(false)
         private set
-    var checkUpdatesOnStart by mutableStateOf(true)
+    var checkUpdatesOnStart by mutableStateOf(false)
         private set
     var audioQuality by mutableStateOf("320kbps")
         private set

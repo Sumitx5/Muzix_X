@@ -38,10 +38,10 @@ class SettingsManager(private val context: Context) {
 
     val streamWifiOnlyFlow: Flow<Boolean> = context.dataStore.data.map { it[STREAM_WIFI_ONLY] ?: false }
     val downloadWifiOnlyFlow: Flow<Boolean> = context.dataStore.data.map { it[DOWNLOAD_WIFI_ONLY] ?: true }
-    val showLyricsFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_LYRICS] ?: true }
-    val normalizeAudioFlow: Flow<Boolean> = context.dataStore.data.map { it[NORMALIZE_AUDIO] ?: true }
+    val showLyricsFlow: Flow<Boolean> = context.dataStore.data.map { it[SHOW_LYRICS] ?: false }
+    val normalizeAudioFlow: Flow<Boolean> = context.dataStore.data.map { it[NORMALIZE_AUDIO] ?: false }
     val skipSilenceFlow: Flow<Boolean> = context.dataStore.data.map { it[SKIP_SILENCE] ?: false }
-    val checkUpdatesOnStartFlow: Flow<Boolean> = context.dataStore.data.map { it[CHECK_UPDATES_ON_START] ?: false }
+    val checkUpdatesOnStartFlow: Flow<Boolean> = context.dataStore.data.map { it[CHECK_UPDATES_ON_START] ?: true }
     val audioQualityFlow: Flow<String> = context.dataStore.data.map { it[AUDIO_QUALITY] ?: "320kbps" }
     val userNameFlow: Flow<String> = context.dataStore.data.map { it[USER_NAME] ?: "User" }
     val appThemeFlow: Flow<String> = context.dataStore.data.map { it[APP_THEME] ?: "Neon Red" }
