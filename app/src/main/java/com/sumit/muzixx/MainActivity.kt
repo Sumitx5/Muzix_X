@@ -278,7 +278,7 @@ class MainActivity : ComponentActivity() {
 
                             if (!isFullScreenView) {
                                 val miniPlayerBottomPadding by animateDpAsState(
-                                    targetValue = if (isBottomBarVisible) 6.dp else 12.dp,
+                                    targetValue = if (isBottomBarVisible) 4.dp else 12.dp,
                                     animationSpec = spring(
                                         dampingRatio = Spring.DampingRatioLowBouncy,
                                         stiffness = Spring.StiffnessMediumLow
@@ -291,7 +291,7 @@ class MainActivity : ComponentActivity() {
                                         .align(Alignment.BottomCenter)
                                         .fillMaxWidth()
                                         .navigationBarsPadding()
-                                        .padding(bottom = 6.dp)
+                                        .padding(bottom = 4.dp)
                                         .background(Color.Transparent)
                                 ) {
                                     if (selectedSong != null) {
