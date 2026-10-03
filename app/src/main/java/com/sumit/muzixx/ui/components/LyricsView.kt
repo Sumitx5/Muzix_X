@@ -30,7 +30,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.sumit.muzixx.data.network.SongLyrics
-import com.sumit.muzixx.utils.glassEffect
 import kotlinx.coroutines.delay
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -223,15 +222,15 @@ private fun CardLyricsSnippet(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(20.dp))
-            .glassEffect(RoundedCornerShape(24.dp))
+            .clip(RoundedCornerShape(24.dp))
+//            .glassEffect(RoundedCornerShape(24.dp))
             .padding(20.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.Start
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             if (beforePrevLine != null) {
                 Text(
