@@ -16,8 +16,8 @@ android {
         applicationId = "com.sumit.muzixx"
         minSdk = 24
         targetSdk = 36
-        versionCode = 28
-        versionName = "1.3.8"
+        versionCode = 29
+        versionName = "1.3.9"
         multiDexEnabled = true
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
