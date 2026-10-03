@@ -8,6 +8,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Home
@@ -32,7 +33,7 @@ fun MuzixBottomBar(
     modifier: Modifier = Modifier,
     visible: Boolean = true
 ) {
-    val barShape = RoundedCornerShape(20.dp)
+//    val barShape = RoundedCornerShape(20.dp)
 
     AnimatedVisibility(
         visible = visible,
@@ -50,13 +51,13 @@ fun MuzixBottomBar(
             Box(
                 modifier = Modifier
                     .matchParentSize()
-                    .glassEffect(shape = barShape)
+                    .glassEffect(shape = CircleShape)
             )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
+                    .padding(horizontal = 6.dp, vertical = 5.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
