@@ -112,7 +112,7 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val selectedSong = musicViewModel.selectedSong
-                val isFullScreenView = currentScreen == "Settings" || currentScreen == "Integration" || currentScreen == "ListenTogether" || currentScreen == "PermissionsScreen" || currentScreen == "AuthScreen"
+                val isFullScreenView = currentScreen in setOf("Settings", "Integration", "ListenTogether", "Permissions", "Auth")
 
                 val view = androidx.compose.ui.platform.LocalView.current
                 if (!view.isInEditMode) {
@@ -137,6 +137,8 @@ class MainActivity : ComponentActivity() {
                 BackHandler(enabled = true) {
                     if (showFullPlayer) {
                         showFullPlayer = false
+                    } else if (currentScreen in setOf("Auth", "Settings", "Integration", "ListenTogether", "Permissions")) {
+                        currentScreen = "Profile"
                     } else if (currentScreen != "Home") {
                         currentScreen = "Home"
                     } else {
@@ -208,11 +210,8 @@ class MainActivity : ComponentActivity() {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
+                                .padding(innerPadding)
                                 .statusBarsPadding()
-                                .padding(
-                                    top = innerPadding.calculateTopPadding(),
-                                    bottom = if (isFullScreenView) 0.dp else innerPadding.calculateBottomPadding()
-                                )
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
                                 AnimatedContent(
@@ -224,12 +223,41 @@ class MainActivity : ComponentActivity() {
                                         )
                                         val fadeSpec = tween<Float>(durationMillis = 300)
 
-                                        if (targetState == "Home" || initialState == "Profile" || initialState == "Settings" ) {
-                                            (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { -it }) + fadeIn(fadeSpec)) togetherWith
-                                                    (slideOutHorizontally(animationSpec = expressiveSpring, targetOffsetX = { it }) + fadeOut(fadeSpec))
-                                        } else {
-                                            (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { it }) + fadeIn(fadeSpec)) togetherWith
-                                                    (slideOutHorizontally(animationSpec = expressiveSpring, targetOffsetX = { -it }) + fadeOut(fadeSpec))
+                                        val subScreens = setOf("Auth", "Settings", "Integration", "Permissions", "ListenTogether")
+
+                                        when (targetState) {
+                                            "Profile" if initialState in subScreens -> {
+                                                (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { -it }) + fadeIn(
+                                                    fadeSpec
+                                                )) togetherWith
+                                                        (slideOutHorizontally(
+                                                            animationSpec = expressiveSpring,
+                                                            targetOffsetX = { it }) + fadeOut(fadeSpec))
+                                            }
+                                            in subScreens -> {
+                                                (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { it }) + fadeIn(
+                                                    fadeSpec
+                                                )) togetherWith
+                                                        (slideOutHorizontally(
+                                                            animationSpec = expressiveSpring,
+                                                            targetOffsetX = { -it }) + fadeOut(fadeSpec))
+                                            }
+                                            "Home" -> {
+                                                (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { -it }) + fadeIn(
+                                                    fadeSpec
+                                                )) togetherWith
+                                                        (slideOutHorizontally(
+                                                            animationSpec = expressiveSpring,
+                                                            targetOffsetX = { it }) + fadeOut(fadeSpec))
+                                            }
+                                            else -> {
+                                                (slideInHorizontally(animationSpec = expressiveSpring, initialOffsetX = { it }) + fadeIn(
+                                                    fadeSpec
+                                                )) togetherWith
+                                                        (slideOutHorizontally(
+                                                            animationSpec = expressiveSpring,
+                                                            targetOffsetX = { -it }) + fadeOut(fadeSpec))
+                                            }
                                         }
                                     },
                                     label = "CoreScreenNavigation"
@@ -248,7 +276,8 @@ class MainActivity : ComponentActivity() {
                                             onSettingsClick = { currentScreen = "Settings" },
                                             onIntegrationClick = { currentScreen = "Integration" },
                                             onListenTogetherClick = { currentScreen = "ListenTogether" },
-                                            onPermClick = { currentScreen = "PermissionsScreen"},
+                                            onPermClick = { currentScreen = "Permissions" },
+                                            onAuthClick = { currentScreen = "Auth" },
                                             modifier = Modifier.fillMaxSize()
                                         )
                                         "Settings" -> SettingsScreen(
@@ -261,14 +290,14 @@ class MainActivity : ComponentActivity() {
                                             modifier = Modifier.fillMaxSize()
                                         )
                                         "ListenTogether" -> {}
-                                        "PermissionsScreen" -> PermissionsScreen(
-                                            onBackClick = { currentScreen = "Profile"},
+                                        "Permissions" -> PermissionsScreen(
+                                            onBackClick = { currentScreen = "Profile" },
                                             modifier = Modifier.fillMaxSize()
                                         )
-                                        "AuthScreen" -> AuthScreen(
-                                            authViewModel,
-                                            musicViewModel,
-                                            onAuthSuccess = {},
+                                        "Auth" -> AuthScreen(
+                                            authViewModel = authViewModel,
+                                            viewModel = musicViewModel,
+                                            onAuthSuccess = { currentScreen = "Profile" },
                                             onBackClick = { currentScreen = "Profile" },
                                             modifier = Modifier.fillMaxSize()
                                         )
@@ -276,7 +305,18 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
 
-                            if (!isFullScreenView) {
+                            AnimatedVisibility(
+                                visible = !isFullScreenView,
+                                enter = slideInVertically(
+                                    initialOffsetY = { it },
+                                    animationSpec = spring(dampingRatio = Spring.DampingRatioLowBouncy, stiffness = Spring.StiffnessMediumLow)
+                                ) + fadeIn(tween(200)),
+                                exit = slideOutVertically(
+                                    targetOffsetY = { it },
+                                    animationSpec = tween(150)
+                                ) + fadeOut(tween(150)),
+                                modifier = Modifier.align(Alignment.BottomCenter)
+                            ) {
                                 val miniPlayerBottomPadding by animateDpAsState(
                                     targetValue = if (isBottomBarVisible) 4.dp else 12.dp,
                                     animationSpec = spring(
@@ -288,7 +328,6 @@ class MainActivity : ComponentActivity() {
 
                                 Column(
                                     modifier = Modifier
-                                        .align(Alignment.BottomCenter)
                                         .fillMaxWidth()
                                         .navigationBarsPadding()
                                         .padding(bottom = 4.dp)

@@ -45,10 +45,10 @@ fun ProfileScreen(
     onIntegrationClick: () -> Unit,
     onListenTogetherClick: () -> Unit,
     onPermClick: () -> Unit,
+    onAuthClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val currentUser = authViewModel.currentUser
-    var showAuthScreen by remember { mutableStateOf(false) }
     var showStatsDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(currentUser) {
@@ -71,190 +71,181 @@ fun ProfileScreen(
         )
     }
 
-    if (showAuthScreen) {
-        AuthScreen(
-            authViewModel = authViewModel,
-            viewModel = viewModel,
-            onAuthSuccess = { showAuthScreen = false },
-            onBackClick = { showAuthScreen = false }
-        )
-    } else {
-        val currentUserName = viewModel.settings.userName
-        val accentColor = MaterialTheme.colorScheme.primary
+    val currentUserName = viewModel.settings.userName
+    val accentColor = MaterialTheme.colorScheme.primary
 
-        Scaffold(
-            modifier = modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                TopAppBar(
-                    title = {
-                        Text(
-                            text = "Profile & Settings",
-                            style = MaterialTheme.typography.headlineMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent,
-                        titleContentColor = MaterialTheme.colorScheme.onSurface
-                    ),
-                    windowInsets = WindowInsets.statusBars
-                )
-            }
-        ) { innerPadding ->
-            Column(
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "Profile & Settings",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(start = 4.dp)
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                ),
+                windowInsets = WindowInsets.statusBars
+            )
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                    .fillMaxWidth()
+                    .glassEffect(RoundedCornerShape(24.dp))
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .glassEffect(RoundedCornerShape(24.dp))
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    Column(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Start
                     ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Start
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(CircleShape)
-                                    .background(accentColor.copy(alpha = 0.2f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profile Pic",
-                                    tint = accentColor,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = if (currentUser != null) currentUser.displayName ?: currentUserName else currentUserName,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                val isSynced = if (currentUser != null) "Synced Account" else "Not Synced"
-                                Text(
-                                    text = "MuzixX Listener | $isSynced",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontWeight = FontWeight.Medium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        }
-
-                        Button(
-                            onClick = { showAuthScreen = true },
-                            colors = ButtonDefaults.buttonColors(containerColor = accentColor),
-                            shape = RoundedCornerShape(16.dp),
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(44.dp)
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(accentColor.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Default.AccountCircle,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile Pic",
+                                tint = accentColor,
+                                modifier = Modifier.size(28.dp)
                             )
-                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Manage Account",
+                                text = if (currentUser != null) currentUser.displayName ?: currentUserName else currentUserName,
+                                style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 15.sp
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            val isSynced = if (currentUser != null) "Synced Account" else "Not Synced"
+                            Text(
+                                text = "MuzixX Listener | $isSynced",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
+
+                    Button(
+                        onClick = onAuthClick,
+                        colors = ButtonDefaults.buttonColors(containerColor = accentColor),
+                        shape = RoundedCornerShape(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountCircle,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Manage Account",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp
+                        )
+                    }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(8.dp))
-                val playtimeMonthly = viewModel.stats.monthlyPlaySecondsState.longValue
-                val listenHours = playtimeMonthly / 3600
-                val listenMinutes = (playtimeMonthly % 3600) / 60
+            Spacer(modifier = Modifier.height(8.dp))
+            val playtimeMonthly = viewModel.stats.monthlyPlaySecondsState.longValue
+            val listenHours = playtimeMonthly / 3600
+            val listenMinutes = (playtimeMonthly % 3600) / 60
 
-                ProfileStatCard(
-                    title = "Monthly Stats",
-                    note = true,
-                    stats = arrayOf(
-                        "Songs Heard" to "${viewModel.stats.monthlySongsHeardState.intValue}",
-                        "Total Time" to "${listenHours}h ${listenMinutes}m"
-                    ),
-                    onClick = { showStatsDialog = true }
+            ProfileStatCard(
+                title = "Monthly Stats",
+                note = true,
+                stats = arrayOf(
+                    "Songs Heard" to "${viewModel.stats.monthlySongsHeardState.intValue}",
+                    "Total Time" to "${listenHours}h ${listenMinutes}m"
+                ),
+                onClick = { showStatsDialog = true }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
+                thickness = 1.dp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                ItemCardSettings(
+                    icon = Icons.Rounded.Cable,
+                    title = "Integrations",
+                    subtitle = "Get Cloud Playlists From Various apps",
+                    onClick = onIntegrationClick
                 )
 
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f),
-                    thickness = 1.dp
+                ItemCardSettings(
+                    icon = Icons.Rounded.Groups,
+                    title = "Listen Together",
+                    subtitle = "Stream synced audio with friends",
+                    onClick = onListenTogetherClick,
+                    badgeText = "Coming Soon"
                 )
-                Spacer(modifier = Modifier.height(16.dp))
 
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    ItemCardSettings(
-                        icon = Icons.Rounded.Cable,
-                        title = "Integrations",
-                        subtitle = "Get Cloud Playlists From Various apps",
-                        onClick = { onIntegrationClick() }
-                    )
+                ItemCardSettings(
+                    icon = Icons.Rounded.Security,
+                    title = "Permissions",
+                    subtitle = "Manage Permission access",
+                    onClick = onPermClick
+                )
 
-                    ItemCardSettings(
-                        icon = Icons.Rounded.Groups,
-                        title = "Listen Together",
-                        subtitle = "Stream synced audio with friends",
-                        onClick = {  },
-                        badgeText = "Coming Soon"
-                    )
+                ItemCardSettings(
+                    icon = Icons.Rounded.Update,
+                    title = "Check for Updates",
+                    subtitle = "Checks the Latest GitHub releases",
+                    onClick = { viewModel.triggerUpdateCheck() }
+                )
 
-                    ItemCardSettings(
-                        icon = Icons.Rounded.Security,
-                        title = "Permissions",
-                        subtitle = "Manage Permission access",
-                        onClick = { onPermClick() }
-                    )
+                ItemCardSettings(
+                    icon = Icons.Rounded.Settings,
+                    title = "Settings",
+                    subtitle = "Playback, theme & audio quality",
+                    onClick = onSettingsClick
+                )
 
-                    ItemCardSettings(
-                        icon = Icons.Rounded.Update,
-                        title = "Check for Updates",
-                        subtitle = "Checks the Latest GitHub releases",
-                        onClick = { viewModel.triggerUpdateCheck() }
-                    )
-
-                    ItemCardSettings(
-                        icon = Icons.Rounded.Settings,
-                        title = "Settings",
-                        subtitle = "Playback, theme & audio quality",
-                        onClick = { onSettingsClick() }
-                    )
-
-                    Spacer(modifier = Modifier.height(80.dp))
-                }
+                Spacer(modifier = Modifier.height(80.dp))
             }
         }
     }
