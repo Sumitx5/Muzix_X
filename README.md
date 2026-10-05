@@ -58,4 +58,5 @@ The Build Below May Contain Some Phone Breaking Bugs:
 * **Visual Assets:** App Branding & Icon beautifully designed by **Vishal**.
 
 ## Git Diagram By [Gitdiagram](https://Gitdiagram.com)
+Updated on 1.3.6
 <img src="https://raw.githubusercontent.com/sumit282698/Muzix_X/master/diagram.png">
